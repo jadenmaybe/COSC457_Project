@@ -1,0 +1,11 @@
+com\example\LoginPanel.class
+com\example\Role.class
+com\example\AppFrame.class
+com\example\Main.class
+com\example\DatabaseConnection.class
+com\example\PlaceholderPanel.class
+com\example\Session.class
+com\example\AuthService.class
+com\example\MainPanel.class
+com\example\AuthService$AuthException.class
+com\example\MockAuthService.class
