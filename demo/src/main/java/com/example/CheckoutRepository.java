@@ -11,4 +11,10 @@ public interface CheckoutRepository {
 
     /** Every checkout (open and returned) for one borrower, soonest due date first. */
     List<CheckoutRecord> forUser(String username);
+
+    /** Every checkout (open and returned), soonest due date first. */
+    List<CheckoutRecord> allRecords();
+
+    /** Marks an open checkout as returned. */
+    void markReturned(CheckoutRecord record);
 }

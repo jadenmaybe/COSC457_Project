@@ -43,4 +43,24 @@ public class SampleCheckoutRepository implements CheckoutRepository {
                 .sorted(Comparator.comparing((CheckoutRecord r) -> r.dueOn))
                 .collect(Collectors.toList());
     }
+
+    @Override
+    public List<CheckoutRecord> allRecords() {
+        return records.stream()
+                .sorted(Comparator.comparing((CheckoutRecord r) -> r.dueOn))
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public void markReturned(CheckoutRecord record) {
+        if (!records.contains(record)) {
+            throw new IllegalArgumentException("Checkout record does not belong to this repository");
+        }
+        if (!record.isOpen()) {
+            throw new IllegalStateException("Checkout record has already been returned");
+        }
+
+        record.returnedOn = LocalDate.now();
+        record.item.status = ItemStatus.AVAILABLE;
+    }
 }

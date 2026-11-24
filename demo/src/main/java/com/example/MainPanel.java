@@ -10,8 +10,7 @@ import java.awt.Color;
 import java.awt.Font;
 
 /**
- * The screen shown after login: a header (who is signed in + Log Out) above a set of tabs.
- * The tabs differ by role. Tabs that aren't built yet are placeholders and get replaced one at a time.
+ * The screen shown after login: a header (who is signed in + Log Out) above role-specific tabs.
  */
 public class MainPanel extends JPanel {
 
@@ -47,10 +46,13 @@ public class MainPanel extends JPanel {
         JTabbedPane tabs = new JTabbedPane();
         tabs.addTab("Catalog", new CatalogPanel(session.role(), catalog));   // same screen for both roles
         if (session.role() == Role.ADMIN) {
-            tabs.addTab("Check-Out Records", new PlaceholderPanel("Check-Out Records",
-                    "Check-out date, due date, and which user has each item",
-                    "Search and filter the records",
-                    "Mark an item as Returned or Overdue"));
+            AdminCheckoutsPanel all = new AdminCheckoutsPanel(checkouts);
+            tabs.addTab("Check-Out Records", all);
+            tabs.addChangeListener(e -> {
+                if (tabs.getSelectedComponent() == all) {
+                    all.refresh();
+                }
+            });
         } else {
             MyCheckoutsPanel mine = new MyCheckoutsPanel(session, checkouts);
             tabs.addTab("My Checkouts", mine);
