@@ -11,6 +11,7 @@ import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
+import javax.swing.SwingUtilities;
 import javax.swing.table.DefaultTableCellRenderer;
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -45,7 +46,8 @@ public class CatalogPanel extends JPanel {
     private final JTable table;
     private final JLabel countLabel = new JLabel(" ");
 
-    private Consumer<MediaItem> onItemOpened;   // set by the details window in the next step
+    private final JButton detailsButton = new JButton("View Details");
+    private Consumer<MediaItem> onItemOpened = this::showDetails;   // what a double-click does
     private boolean loadingFilters;             // true while we fill the combo boxes, so they don't trigger searches
 
     public CatalogPanel(Role role, CatalogRepository repo) {
@@ -112,6 +114,8 @@ public class CatalogPanel extends JPanel {
         bar.add(countLabel, BorderLayout.WEST);
 
         JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        detailsButton.setEnabled(false);   // enabled once a row is selected
+        buttons.add(detailsButton);
         // Role-specific buttons. They are placeholders for now; later steps give them behavior.
         if (role == Role.ADMIN) {
             JButton add = new JButton("Add Media Item...");
@@ -151,6 +155,15 @@ public class CatalogPanel extends JPanel {
         fieldBox.addActionListener(e -> filterChanged());
         availableOnly.addActionListener(e -> filterChanged());
         clearButton.addActionListener(e -> clearFilters());
+
+        detailsButton.addActionListener(e -> {
+            MediaItem item = selectedItem();
+            if (item != null) {
+                showDetails(item);
+            }
+        });
+        table.getSelectionModel().addListSelectionListener(
+                e -> detailsButton.setEnabled(table.getSelectedRow() >= 0));
 
         // Double-click a row to open that item (the details window plugs in here next).
         table.addMouseListener(new MouseAdapter() {
@@ -195,6 +208,10 @@ public class CatalogPanel extends JPanel {
         List<MediaItem> results = repo.search(currentQuery());
         model.setItems(results);
         countLabel.setText(results.size() + (results.size() == 1 ? " item found" : " items found"));
+    }
+
+    private void showDetails(MediaItem item) {
+        new ItemDetailsDialog(SwingUtilities.getWindowAncestor(this), item, role).setVisible(true);
     }
 
     // ------------------------------------------------------------------ for other screens
