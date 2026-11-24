@@ -10,17 +10,15 @@ import java.awt.Color;
 import java.awt.Font;
 
 /**
- * The screen shown after login: a header (who is signed in + Log Out) above a
- * set of tabs.
- * The tabs differ by role. Every tab is a placeholder for now; they get
- * replaced one at a time.
+ * The screen shown after login: a header (who is signed in + Log Out) above a set of tabs.
+ * The tabs differ by role. Tabs that aren't built yet are placeholders and get replaced one at a time.
  */
 public class MainPanel extends JPanel {
 
-    public MainPanel(Session session, Runnable onLogout) {
+    public MainPanel(Session session, CatalogRepository catalog, Runnable onLogout) {
         setLayout(new BorderLayout());
         add(buildHeader(session, onLogout), BorderLayout.NORTH);
-        add(buildTabs(session), BorderLayout.CENTER);
+        add(buildTabs(session, catalog), BorderLayout.CENTER);
     }
 
     private JPanel buildHeader(Session session, Runnable onLogout) {
@@ -45,22 +43,15 @@ public class MainPanel extends JPanel {
         return header;
     }
 
-    private JTabbedPane buildTabs(Session session) {
+    private JTabbedPane buildTabs(Session session, CatalogRepository catalog) {
         JTabbedPane tabs = new JTabbedPane();
+        tabs.addTab("Catalog", new CatalogPanel(session.role(), catalog));   // same screen for both roles
         if (session.role() == Role.ADMIN) {
-            tabs.addTab("Catalog", new PlaceholderPanel("Library Catalog (Admin)",
-                    "Search by title, author, genre, media type",
-                    "Click an item to see its details and availability",
-                    "Add Media Item button (opens a form for the item's attributes)"));
             tabs.addTab("Check-Out Records", new PlaceholderPanel("Check-Out Records",
                     "Check-out date, due date, and which user has each item",
                     "Search and filter the records",
                     "Mark an item as Returned or Overdue"));
         } else {
-            tabs.addTab("Catalog", new PlaceholderPanel("Library Catalog",
-                    "Search by title, author, genre, media type",
-                    "Click an item to see its details, location and availability",
-                    "Check Out button for available items"));
             tabs.addTab("My Checkouts", new PlaceholderPanel("My Checked-Out Items",
                     "Items you currently have, with due dates",
                     "Status shown as Checked Out, Overdue or Returned"));

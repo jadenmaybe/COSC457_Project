@@ -36,7 +36,7 @@ public class LoginPanel extends JPanel {
     public LoginPanel(AuthService auth, Consumer<Session> onSuccess) {
         this.auth = auth;
         this.onSuccess = onSuccess;
-        setLayout(new GridBagLayout()); // centers the card in the window
+        setLayout(new GridBagLayout());   // centers the card in the window
         add(buildCard());
 
         loginButton.addActionListener(e -> attemptLogin());
@@ -77,6 +77,11 @@ public class LoginPanel extends JPanel {
         messageLabel.setForeground(new Color(0xB00020));
         messageLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
+        JLabel demoNote = new JLabel("Demo mode: any username and password works.");
+        demoNote.setFont(demoNote.getFont().deriveFont(Font.ITALIC, 11f));
+        demoNote.setForeground(Color.GRAY);
+        demoNote.setAlignmentX(Component.CENTER_ALIGNMENT);
+
         card.add(title);
         card.add(Box.createVerticalStrut(4));
         card.add(subtitle);
@@ -89,6 +94,7 @@ public class LoginPanel extends JPanel {
         card.add(Box.createVerticalStrut(8));
         card.add(loginButton);
         card.add(Box.createVerticalStrut(12));
+        card.add(demoNote);
         return card;
     }
 
@@ -115,7 +121,7 @@ public class LoginPanel extends JPanel {
         } catch (AuthService.AuthException ex) {
             messageLabel.setText(ex.getMessage());
         } finally {
-            Arrays.fill(password, '\0'); // don't leave the password sitting in memory
+            Arrays.fill(password, '\0');   // don't leave the password sitting in memory
         }
     }
 
