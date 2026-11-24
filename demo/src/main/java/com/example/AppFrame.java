@@ -17,6 +17,7 @@ public class AppFrame extends JFrame {
     private final JPanel root = new JPanel(cards);
     private final AuthService auth = new MockAuthService();   // TODO: real database-backed AuthService
     private final CatalogRepository catalog = new SampleCatalogRepository();   // TODO: MySQL-backed repository
+    private final CheckoutRepository checkouts = new SampleCheckoutRepository(catalog);   // TODO: MySQL-backed
     private final LoginPanel loginPanel;
     private MainPanel mainPanel;
 
@@ -44,7 +45,7 @@ public class AppFrame extends JFrame {
     }
 
     private void showMain(Session session) {
-        mainPanel = new MainPanel(session, catalog, this::showLogin);
+        mainPanel = new MainPanel(session, catalog, checkouts, this::showLogin);
         root.add(mainPanel, MAIN);
         cards.show(root, MAIN);
         getRootPane().setDefaultButton(null);

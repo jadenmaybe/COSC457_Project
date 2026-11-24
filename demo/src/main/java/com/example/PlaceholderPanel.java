@@ -9,7 +9,10 @@ import java.awt.Component;
 import java.awt.Font;
 import java.awt.GridBagLayout;
 
-/** A stand-in screen that says what will go here. Each one gets replaced by a real panel later. */
+/**
+ * A stand-in screen that says what will go here. Each one gets replaced by a
+ * real panel later.
+ */
 public class PlaceholderPanel extends JPanel {
 
     public PlaceholderPanel(String title, String... plannedFeatures) {
@@ -24,7 +27,7 @@ public class PlaceholderPanel extends JPanel {
         heading.setAlignmentX(Component.LEFT_ALIGNMENT);
         box.add(heading);
 
-        JLabel soon = new JLabel("Coming soon. This screen will include:");
+        JLabel soon = new JLabel("Include:");
         soon.setForeground(Color.GRAY);
         soon.setAlignmentX(Component.LEFT_ALIGNMENT);
         soon.setBorder(BorderFactory.createEmptyBorder(6, 0, 8, 0));

@@ -80,6 +80,11 @@ public class SampleCatalogRepository implements CatalogRepository {
     }
 
     @Override
+    public MediaItem findByBarcode(String barcode) {
+        return items.stream().filter(i -> i.barcode.equalsIgnoreCase(barcode)).findFirst().orElse(null);
+    }
+
+    @Override
     public List<String> genres() {
         return items.stream().map(i -> i.genre).filter(g -> g != null && !g.isBlank())
                 .distinct().sorted().collect(Collectors.toList());

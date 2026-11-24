@@ -25,7 +25,8 @@ import java.util.function.Consumer;
 
 /**
  * The library catalog: a search bar with filters above a table of results.
- * Shared by both roles. The role decides which buttons appear in the bottom bar.
+ * Shared by both roles. The role decides which buttons appear in the bottom
+ * bar.
  */
 public class CatalogPanel extends JPanel {
     private static final String ALL_TYPES = "All media types";
@@ -47,8 +48,8 @@ public class CatalogPanel extends JPanel {
     private final JLabel countLabel = new JLabel(" ");
 
     private final JButton detailsButton = new JButton("View Details");
-    private Consumer<MediaItem> onItemOpened = this::showDetails;   // what a double-click does
-    private boolean loadingFilters;             // true while we fill the combo boxes, so they don't trigger searches
+    private Consumer<MediaItem> onItemOpened = this::showDetails; // what a double-click does
+    private boolean loadingFilters; // true while we fill the combo boxes, so they don't trigger searches
 
     public CatalogPanel(Role role, CatalogRepository repo) {
         this.role = role;
@@ -94,14 +95,14 @@ public class CatalogPanel extends JPanel {
     }
 
     private JScrollPane buildTable() {
-        table.setAutoCreateRowSorter(true);          // click a column header to sort
+        table.setAutoCreateRowSorter(true); // click a column header to sort
         table.setRowHeight(24);
         table.setFillsViewportHeight(true);
         table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         table.getTableHeader().setReorderingAllowed(false);
         table.setDefaultRenderer(ItemStatus.class, new StatusRenderer());
 
-        int[] widths = {70, 230, 150, 100, 110, 55, 150, 100};
+        int[] widths = { 70, 230, 150, 100, 110, 55, 150, 100 };
         for (int i = 0; i < widths.length; i++) {
             table.getColumnModel().getColumn(i).setPreferredWidth(widths[i]);
         }
@@ -114,18 +115,19 @@ public class CatalogPanel extends JPanel {
         bar.add(countLabel, BorderLayout.WEST);
 
         JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
-        detailsButton.setEnabled(false);   // enabled once a row is selected
+        detailsButton.setEnabled(false); // enabled once a row is selected
         buttons.add(detailsButton);
-        // Role-specific buttons. They are placeholders for now; later steps give them behavior.
+        // Role-specific buttons. They are placeholders for now; later steps give them
+        // behavior.
         if (role == Role.ADMIN) {
             JButton add = new JButton("Add Media Item...");
             add.setEnabled(false);
-            add.setToolTipText("Coming in a later step");
+            add.setToolTipText("Placeholder");
             buttons.add(add);
         } else {
             JButton checkout = new JButton("Check Out Selected");
             checkout.setEnabled(false);
-            checkout.setToolTipText("Coming in a later step");
+            checkout.setToolTipText("Placeholder");
             buttons.add(checkout);
         }
         bar.add(buttons, BorderLayout.EAST);
@@ -149,7 +151,7 @@ public class CatalogPanel extends JPanel {
 
     private void wireEvents() {
         searchButton.addActionListener(e -> runSearch());
-        searchField.addActionListener(e -> runSearch());       // Enter key
+        searchField.addActionListener(e -> runSearch()); // Enter key
         typeBox.addActionListener(e -> filterChanged());
         genreBox.addActionListener(e -> filterChanged());
         fieldBox.addActionListener(e -> filterChanged());
@@ -204,7 +206,8 @@ public class CatalogPanel extends JPanel {
     }
 
     private void runSearch() {
-        // TODO: when this talks to MySQL, run it inside a SwingWorker so the window never freezes.
+        // TODO: when this talks to MySQL, run it inside a SwingWorker so the window
+        // never freezes.
         List<MediaItem> results = repo.search(currentQuery());
         model.setItems(results);
         countLabel.setText(results.size() + (results.size() == 1 ? " item found" : " items found"));
@@ -214,7 +217,8 @@ public class CatalogPanel extends JPanel {
         new ItemDetailsDialog(SwingUtilities.getWindowAncestor(this), item, role).setVisible(true);
     }
 
-    // ------------------------------------------------------------------ for other screens
+    // ------------------------------------------------------------------ for other
+    // screens
 
     /** The item in the selected row, or null if nothing is selected. */
     public MediaItem selectedItem() {
@@ -227,17 +231,21 @@ public class CatalogPanel extends JPanel {
         this.onItemOpened = handler;
     }
 
-    /** Reload from the repository (call after an item is added or its status changes). */
+    /**
+     * Reload from the repository (call after an item is added or its status
+     * changes).
+     */
     public void refresh() {
         runSearch();
     }
 
-    // ------------------------------------------------------------------ status colors
+    // ------------------------------------------------------------------ status
+    // colors
 
     private static class StatusRenderer extends DefaultTableCellRenderer {
         @Override
         public Component getTableCellRendererComponent(JTable t, Object value, boolean selected,
-                                                       boolean focus, int row, int col) {
+                boolean focus, int row, int col) {
             super.getTableCellRendererComponent(t, value, selected, focus, row, col);
             setFont(getFont().deriveFont(Font.BOLD));
             if (!selected && value instanceof ItemStatus s) {

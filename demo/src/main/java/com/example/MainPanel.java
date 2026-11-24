@@ -15,10 +15,10 @@ import java.awt.Font;
  */
 public class MainPanel extends JPanel {
 
-    public MainPanel(Session session, CatalogRepository catalog, Runnable onLogout) {
+    public MainPanel(Session session, CatalogRepository catalog, CheckoutRepository checkouts, Runnable onLogout) {
         setLayout(new BorderLayout());
         add(buildHeader(session, onLogout), BorderLayout.NORTH);
-        add(buildTabs(session, catalog), BorderLayout.CENTER);
+        add(buildTabs(session, catalog, checkouts), BorderLayout.CENTER);
     }
 
     private JPanel buildHeader(Session session, Runnable onLogout) {
@@ -43,7 +43,7 @@ public class MainPanel extends JPanel {
         return header;
     }
 
-    private JTabbedPane buildTabs(Session session, CatalogRepository catalog) {
+    private JTabbedPane buildTabs(Session session, CatalogRepository catalog, CheckoutRepository checkouts) {
         JTabbedPane tabs = new JTabbedPane();
         tabs.addTab("Catalog", new CatalogPanel(session.role(), catalog));   // same screen for both roles
         if (session.role() == Role.ADMIN) {
@@ -52,9 +52,14 @@ public class MainPanel extends JPanel {
                     "Search and filter the records",
                     "Mark an item as Returned or Overdue"));
         } else {
-            tabs.addTab("My Checkouts", new PlaceholderPanel("My Checked-Out Items",
-                    "Items you currently have, with due dates",
-                    "Status shown as Checked Out, Overdue or Returned"));
+            MyCheckoutsPanel mine = new MyCheckoutsPanel(session, checkouts);
+            tabs.addTab("My Checkouts", mine);
+            // Reload whenever the user switches to this tab, so it is never out of date.
+            tabs.addChangeListener(e -> {
+                if (tabs.getSelectedComponent() == mine) {
+                    mine.refresh();
+                }
+            });
         }
         return tabs;
     }

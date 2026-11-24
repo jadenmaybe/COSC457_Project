@@ -12,6 +12,9 @@ public interface CatalogRepository {
     /** Items matching the query, sorted by title. */
     List<MediaItem> search(CatalogQuery query);
 
+    /** One item by barcode, or null if there is none. */
+    MediaItem findByBarcode(String barcode);
+
     /** Distinct genres, for the genre filter. */
     List<String> genres();
 }
