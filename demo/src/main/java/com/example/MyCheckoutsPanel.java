@@ -22,6 +22,8 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import javax.swing.SwingWorker;
+import javax.swing.JOptionPane;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -141,9 +143,26 @@ public class MyCheckoutsPanel extends JPanel {
 
     /** Reloads from the repository. Called when the tab is shown and whenever the filter changes. */
     public void refresh() {
-        // TODO: when this talks to MySQL, load inside a SwingWorker so the window never freezes.
-        List<CheckoutRecord> mine = repo.forUser(session.username());
+        new SwingWorker<List<CheckoutRecord>, Void>() {
+            @Override
+            protected List<CheckoutRecord> doInBackground() {
+                return repo.forUser(session.username()); // runs off the UI thread
+            }
 
+            @Override
+            protected void done() {
+                try {
+                    show(get());
+                } catch (Exception e) {
+                    Throwable t = e.getCause() != null ? e.getCause() : e;
+                    JOptionPane.showMessageDialog(MyCheckoutsPanel.this, t.getMessage(), "Database error",
+                            JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        }.execute();
+    }
+
+    private void show(List<CheckoutRecord> mine) {
         long open = mine.stream().filter(CheckoutRecord::isOpen).count();
         long overdue = mine.stream().filter(r -> r.status() == CheckoutStatus.OVERDUE).count();
         summaryLabel.setText(open == 1 ? "1 item checked out" : open + " items checked out");

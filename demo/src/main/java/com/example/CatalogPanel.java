@@ -12,6 +12,8 @@ import javax.swing.JTable;
 import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
 import javax.swing.SwingUtilities;
+import javax.swing.JOptionPane;
+import javax.swing.SwingWorker;
 import javax.swing.table.DefaultTableCellRenderer;
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -206,11 +208,32 @@ public class CatalogPanel extends JPanel {
     }
 
     private void runSearch() {
-        // TODO: when this talks to MySQL, run it inside a SwingWorker so the window
-        // never freezes.
-        List<MediaItem> results = repo.search(currentQuery());
-        model.setItems(results);
-        countLabel.setText(results.size() + (results.size() == 1 ? " item found" : " items found"));
+        CatalogQuery query = currentQuery();
+        countLabel.setText("Loading...");
+        new SwingWorker<List<MediaItem>, Void>() {
+            @Override
+            protected List<MediaItem> doInBackground() {
+                return repo.search(query); // runs off the UI thread
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    List<MediaItem> results = get();
+                    model.setItems(results);
+                    countLabel.setText(results.size() + (results.size() == 1 ? " item found" : " items found"));
+                } catch (Exception e) {
+                    countLabel.setText("Could not load the catalog.");
+                    JOptionPane.showMessageDialog(CatalogPanel.this, rootMessage(e), "Database error",
+                            JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        }.execute();
+    }
+
+    private static String rootMessage(Exception e) {
+        Throwable t = e.getCause() != null ? e.getCause() : e;
+        return t.getMessage();
     }
 
     private void showDetails(MediaItem item) {

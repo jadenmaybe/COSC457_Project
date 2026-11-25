@@ -15,9 +15,9 @@ public class AppFrame extends JFrame {
 
     private final CardLayout cards = new CardLayout();
     private final JPanel root = new JPanel(cards);
-    private final AuthService auth = new MockAuthService();   // TODO: real database-backed AuthService
-    private final CatalogRepository catalog = new SampleCatalogRepository();   // TODO: MySQL-backed repository
-    private final CheckoutRepository checkouts = new SampleCheckoutRepository(catalog);   // TODO: MySQL-backed
+    private final AuthService auth = new MockAuthService();   // mock login: any non-blank username/password
+    private final CatalogRepository catalog = new MySqlCatalogRepository();
+    private final CheckoutRepository checkouts = new MySqlCheckoutRepository();
     private final LoginPanel loginPanel;
     private MainPanel mainPanel;
 

@@ -23,6 +23,7 @@ import java.awt.FlowLayout;
 import java.awt.Font;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import javax.swing.SwingWorker;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -135,8 +136,24 @@ public class AdminCheckoutsPanel extends JPanel {
 
     /** Reloads the repository and reapplies the current search and status filters. */
     public void refresh() {
-        records = new ArrayList<>(repo.allRecords());
-        applyFilters();
+        new SwingWorker<List<CheckoutRecord>, Void>() {
+            @Override
+            protected List<CheckoutRecord> doInBackground() {
+                return repo.allRecords(); // runs off the UI thread
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    records = new ArrayList<>(get());
+                    applyFilters();
+                } catch (Exception e) {
+                    Throwable t = e.getCause() != null ? e.getCause() : e;
+                    JOptionPane.showMessageDialog(AdminCheckoutsPanel.this, t.getMessage(), "Database error",
+                            JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        }.execute();
     }
 
     private void updateReturnButton() {
@@ -168,14 +185,26 @@ public class AdminCheckoutsPanel extends JPanel {
             return;
         }
 
-        try {
-            repo.markReturned(selected);
-            refresh();
-        } catch (IllegalStateException ex) {
-            JOptionPane.showMessageDialog(this, ex.getMessage(), "Unable to Mark Returned",
-                    JOptionPane.ERROR_MESSAGE);
-            refresh();
-        }
+        returnButton.setEnabled(false);
+        new SwingWorker<Void, Void>() {
+            @Override
+            protected Void doInBackground() {
+                repo.markReturned(selected); // runs off the UI thread
+                return null;
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    get();
+                } catch (Exception ex) {
+                    Throwable t = ex.getCause() != null ? ex.getCause() : ex;
+                    JOptionPane.showMessageDialog(AdminCheckoutsPanel.this, t.getMessage(),
+                            "Unable to Mark Returned", JOptionPane.ERROR_MESSAGE);
+                }
+                refresh();
+            }
+        }.execute();
     }
 
     private void applyFilters() {
@@ -291,3 +320,24 @@ public class AdminCheckoutsPanel extends JPanel {
         }
     }
 }
+
+
+    
+
+    
+    
+        
+    
+
+
+
+    
+    
+            
+        
+        
+        
+            
+        
+        
+    
