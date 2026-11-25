@@ -22,6 +22,7 @@ import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -50,6 +51,9 @@ public class CatalogPanel extends JPanel {
     private final JLabel countLabel = new JLabel(" ");
 
     private final JButton detailsButton = new JButton("View Details");
+    private final JButton checkoutButton = new JButton("Check Out Selected");
+    private CheckoutRepository checkoutRepo; // null until enableCheckout() is called
+    private String checkoutUser;
     private Consumer<MediaItem> onItemOpened = this::showDetails; // what a double-click does
     private boolean loadingFilters; // true while we fill the combo boxes, so they don't trigger searches
 
@@ -127,10 +131,8 @@ public class CatalogPanel extends JPanel {
             add.setToolTipText("Placeholder");
             buttons.add(add);
         } else {
-            JButton checkout = new JButton("Check Out Selected");
-            checkout.setEnabled(false);
-            checkout.setToolTipText("Placeholder");
-            buttons.add(checkout);
+            checkoutButton.setEnabled(false); // enabled when an available item is selected
+            buttons.add(checkoutButton);
         }
         bar.add(buttons, BorderLayout.EAST);
         return bar;
@@ -166,8 +168,16 @@ public class CatalogPanel extends JPanel {
                 showDetails(item);
             }
         });
-        table.getSelectionModel().addListSelectionListener(
-                e -> detailsButton.setEnabled(table.getSelectedRow() >= 0));
+        table.getSelectionModel().addListSelectionListener(e -> {
+            detailsButton.setEnabled(table.getSelectedRow() >= 0);
+            updateCheckoutButton();
+        });
+        checkoutButton.addActionListener(e -> {
+            MediaItem item = selectedItem();
+            if (item != null) {
+                checkOutItem(item);
+            }
+        });
 
         // Double-click a row to open that item (the details window plugs in here next).
         table.addMouseListener(new MouseAdapter() {
@@ -237,7 +247,61 @@ public class CatalogPanel extends JPanel {
     }
 
     private void showDetails(MediaItem item) {
-        new ItemDetailsDialog(SwingUtilities.getWindowAncestor(this), item, role).setVisible(true);
+        new ItemDetailsDialog(SwingUtilities.getWindowAncestor(this), item, role,
+                checkoutRepo == null ? null : this::checkOutItem).setVisible(true);
+    }
+
+    // ------------------------------------------------------------------ checking out
+
+    /** Lets this screen check items out for the signed-in user. Called by MainPanel for regular users. */
+    public void enableCheckout(CheckoutRepository checkouts, String username) {
+        this.checkoutRepo = checkouts;
+        this.checkoutUser = username;
+        updateCheckoutButton();
+    }
+
+    private void updateCheckoutButton() {
+        MediaItem item = selectedItem();
+        boolean canCheckOut = checkoutRepo != null && item != null && item.isAvailable();
+        checkoutButton.setEnabled(canCheckOut);
+        checkoutButton.setToolTipText(item != null && !item.isAvailable()
+                ? "Only available items can be checked out" : null);
+    }
+
+    /** Asks for confirmation, then checks the item out in the background and reloads the list. */
+    private void checkOutItem(MediaItem item) {
+        if (checkoutRepo == null) {
+            return;
+        }
+        LocalDate due = LocalDate.now().plusDays(CheckoutRepository.LOAN_DAYS);
+        int answer = JOptionPane.showConfirmDialog(this,
+                "Check out \"" + item.displayTitle() + "\"?\nIt will be due on " + due + ".",
+                "Confirm Check Out", JOptionPane.YES_NO_OPTION);
+        if (answer != JOptionPane.YES_OPTION) {
+            return;
+        }
+        checkoutButton.setEnabled(false);
+        new SwingWorker<CheckoutRecord, Void>() {
+            @Override
+            protected CheckoutRecord doInBackground() {
+                return checkoutRepo.checkOut(checkoutUser, item); // runs off the UI thread
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    CheckoutRecord record = get();
+                    JOptionPane.showMessageDialog(CatalogPanel.this,
+                            "\"" + item.displayTitle() + "\" is checked out. Due " + record.dueOn
+                                    + ".\nYou can find it under My Checkouts.",
+                            "Checked Out", JOptionPane.INFORMATION_MESSAGE);
+                } catch (Exception e) {
+                    JOptionPane.showMessageDialog(CatalogPanel.this, rootMessage(e), "Could not check out",
+                            JOptionPane.ERROR_MESSAGE);
+                }
+                runSearch(); // always reload, so the list shows what the database really says
+            }
+        }.execute();
     }
 
     // ------------------------------------------------------------------ for other

@@ -44,7 +44,17 @@ public class MainPanel extends JPanel {
 
     private JTabbedPane buildTabs(Session session, CatalogRepository catalog, CheckoutRepository checkouts) {
         JTabbedPane tabs = new JTabbedPane();
-        tabs.addTab("Catalog", new CatalogPanel(session.role(), catalog));   // same screen for both roles
+        CatalogPanel catalogPanel = new CatalogPanel(session.role(), catalog);   // same screen for both roles
+        if (session.role() != Role.ADMIN) {
+            catalogPanel.enableCheckout(checkouts, session.username());
+        }
+        tabs.addTab("Catalog", catalogPanel);
+        // Reload whenever the user switches back to the catalog, so item statuses (e.g. after a return) are current.
+        tabs.addChangeListener(e -> {
+            if (tabs.getSelectedComponent() == catalogPanel) {
+                catalogPanel.refresh();
+            }
+        });
         if (session.role() == Role.ADMIN) {
             AdminCheckoutsPanel all = new AdminCheckoutsPanel(checkouts);
             tabs.addTab("Check-Out Records", all);

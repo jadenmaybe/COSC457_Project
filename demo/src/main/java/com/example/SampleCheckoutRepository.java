@@ -52,6 +52,18 @@ public class SampleCheckoutRepository implements CheckoutRepository {
     }
 
     @Override
+    public CheckoutRecord checkOut(String username, MediaItem item) {
+        if (!item.isAvailable()) {
+            throw new IllegalStateException("This item is not available to check out.");
+        }
+        LocalDate today = LocalDate.now();
+        CheckoutRecord record = new CheckoutRecord(username, item, today, today.plusDays(LOAN_DAYS), null);
+        records.add(record);
+        item.status = ItemStatus.CHECKED_OUT;
+        return record;
+    }
+
+    @Override
     public void markReturned(CheckoutRecord record) {
         if (!records.contains(record)) {
             throw new IllegalArgumentException("Checkout record does not belong to this repository");

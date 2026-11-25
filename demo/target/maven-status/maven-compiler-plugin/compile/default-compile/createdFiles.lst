@@ -4,6 +4,7 @@ com\example\CatalogTableModel.class
 com\example\CheckoutRecord.class
 com\example\MySqlCheckoutRepository.class
 com\example\CheckoutStatus.class
+com\example\CatalogPanel$4.class
 com\example\AdminCheckoutsPanel$3.class
 com\example\MyCheckoutsPanel$DateRenderer.class
 com\example\ItemDetailsDialog.class

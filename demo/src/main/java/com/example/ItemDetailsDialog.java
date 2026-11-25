@@ -25,6 +25,7 @@ import java.awt.Window;
 import java.awt.event.ActionEvent;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
 
 /**
  * Pop-up showing everything known about one catalog item.
@@ -36,6 +37,11 @@ public class ItemDetailsDialog extends JDialog {
     private static final Set<String> SHOWN_IN_HEADER = Set.of("Title", "Media type", "Status");
 
     public ItemDetailsDialog(Window owner, MediaItem item, Role viewer) {
+        this(owner, item, viewer, null);
+    }
+
+    /** @param onCheckout what the Check Out button does (null = the button stays disabled) */
+    public ItemDetailsDialog(Window owner, MediaItem item, Role viewer, Consumer<MediaItem> onCheckout) {
         super(owner, item.displayTitle(), ModalityType.APPLICATION_MODAL);
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
 
@@ -46,7 +52,7 @@ public class ItemDetailsDialog extends JDialog {
         scroll.setBorder(BorderFactory.createEmptyBorder());
         scroll.getVerticalScrollBar().setUnitIncrement(16);
         content.add(scroll, BorderLayout.CENTER);
-        content.add(buildButtons(item, viewer), BorderLayout.SOUTH);
+        content.add(buildButtons(item, viewer, onCheckout), BorderLayout.SOUTH);
         setContentPane(content);
 
         setSize(540, 620);
@@ -172,14 +178,22 @@ public class ItemDetailsDialog extends JDialog {
 
     // ------------------------------------------------------------------ buttons
 
-    private JPanel buildButtons(MediaItem item, Role viewer) {
+    private JPanel buildButtons(MediaItem item, Role viewer, Consumer<MediaItem> onCheckout) {
         JPanel bar = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 8));
         bar.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(0xC8C8C8)));
 
         if (viewer != Role.ADMIN) {
             JButton checkout = new JButton("Check Out");
-            checkout.setEnabled(false);   // TODO: next step; only enabled when the item is available
-            checkout.setToolTipText("Coming in a later step");
+            if (onCheckout != null && item.isAvailable()) {
+                checkout.addActionListener(e -> {
+                    dispose();
+                    onCheckout.accept(item);
+                });
+            } else {
+                checkout.setEnabled(false);
+                checkout.setToolTipText(onCheckout == null ? "Open this item from the Catalog tab to check it out"
+                        : "Only available items can be checked out");
+            }
             bar.add(checkout);
         }
         JButton close = new JButton(new AbstractAction("Close") {

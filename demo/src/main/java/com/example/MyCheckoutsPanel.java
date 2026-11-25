@@ -28,8 +28,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * The signed-in user's own checkouts: what they have now, when it is due, and what they have returned.
- * Unlike the catalog, a user sees their OWN items' real status here, including Overdue.
+ * The signed-in user's own checkouts: what they have now, when it is due, and
+ * what they have returned.
+ * Unlike the catalog, a user sees their OWN items' real status here, including
+ * Overdue.
  */
 public class MyCheckoutsPanel extends JPanel {
     private static final String CURRENT = "Items I have now";
@@ -39,7 +41,7 @@ public class MyCheckoutsPanel extends JPanel {
     private final Session session;
     private final CheckoutRepository repo;
 
-    private final JComboBox<String> filterBox = new JComboBox<>(new String[]{CURRENT, RETURNED, ALL});
+    private final JComboBox<String> filterBox = new JComboBox<>(new String[] { CURRENT, RETURNED, ALL });
     private final JLabel summaryLabel = new JLabel(" ");
     private final JLabel overdueLabel = new JLabel(" ");
     private final JLabel countLabel = new JLabel(" ");
@@ -112,7 +114,7 @@ public class MyCheckoutsPanel extends JPanel {
 
     private JScrollPane buildTable() {
         TableRowSorter<MyCheckoutsTableModel> sorter = new TableRowSorter<>(model);
-        sorter.setSortable(MyCheckoutsTableModel.DUE_IN, false);   // text like "5 days" doesn't sort meaningfully
+        sorter.setSortable(MyCheckoutsTableModel.DUE_IN, false); // text like "5 days" doesn't sort meaningfully
         table.setRowSorter(sorter);
         table.setRowHeight(24);
         table.setFillsViewportHeight(true);
@@ -121,7 +123,7 @@ public class MyCheckoutsPanel extends JPanel {
         table.setDefaultRenderer(LocalDate.class, new DateRenderer());
         table.setDefaultRenderer(CheckoutStatus.class, new StatusRenderer());
 
-        int[] widths = {220, 140, 95, 100, 100, 100, 100, 100};
+        int[] widths = { 220, 140, 95, 100, 100, 100, 100, 100 };
         for (int i = 0; i < widths.length; i++) {
             table.getColumnModel().getColumn(i).setPreferredWidth(widths[i]);
         }
@@ -141,7 +143,10 @@ public class MyCheckoutsPanel extends JPanel {
 
     // ------------------------------------------------------------------ behavior
 
-    /** Reloads from the repository. Called when the tab is shown and whenever the filter changes. */
+    /**
+     * Reloads from the repository. Called when the tab is shown and whenever the
+     * filter changes.
+     */
     public void refresh() {
         new SwingWorker<List<CheckoutRecord>, Void>() {
             @Override
@@ -166,7 +171,7 @@ public class MyCheckoutsPanel extends JPanel {
         long open = mine.stream().filter(CheckoutRecord::isOpen).count();
         long overdue = mine.stream().filter(r -> r.status() == CheckoutStatus.OVERDUE).count();
         summaryLabel.setText(open == 1 ? "1 item checked out" : open + " items checked out");
-        overdueLabel.setText(overdue == 0 ? " " : overdue + " overdue: please return as soon as you can");
+        overdueLabel.setText(overdue == 0 ? " " : overdue + " overdue.");
 
         String choice = (String) filterBox.getSelectedItem();
         List<CheckoutRecord> shown = new ArrayList<>();
@@ -200,12 +205,13 @@ public class MyCheckoutsPanel extends JPanel {
         new ItemDetailsDialog(SwingUtilities.getWindowAncestor(this), r.item, session.role()).setVisible(true);
     }
 
-    // ------------------------------------------------------------------ table model + renderers
+    // ------------------------------------------------------------------ table
+    // model + renderers
 
     private static class MyCheckoutsTableModel extends AbstractTableModel {
         static final int DUE_IN = 5;
         private static final String[] COLUMNS = {
-                "Title", "Author", "Media Type", "Checked Out", "Due Date", "Due In", "Returned", "Status"};
+                "Title", "Author", "Media Type", "Checked Out", "Due Date", "Due In", "Returned", "Status" };
         private List<CheckoutRecord> records = new ArrayList<>();
 
         void setRecords(List<CheckoutRecord> r) {
@@ -270,7 +276,7 @@ public class MyCheckoutsPanel extends JPanel {
     private static class StatusRenderer extends DefaultTableCellRenderer {
         @Override
         public Component getTableCellRendererComponent(JTable t, Object value, boolean selected,
-                                                       boolean focus, int row, int col) {
+                boolean focus, int row, int col) {
             super.getTableCellRendererComponent(t, value, selected, focus, row, col);
             setFont(getFont().deriveFont(Font.BOLD));
             if (!selected && value instanceof CheckoutStatus s) {
