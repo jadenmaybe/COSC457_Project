@@ -31,9 +31,8 @@ import java.time.LocalDate;
 import java.util.List;
 
 /**
- * The administrator's "Add Media Item" form. The fields shown depend on the media type: a Book asks for an ISBN,
+ * The administrator's add/edit media item form. The fields shown depend on the media type: a Book asks for an ISBN,
  * a Video/Audio item for a runtime, Equipment for just an equipment type (it has no title/author record).
- * It builds a MediaItem and hands it to CatalogRepository.addItem(); the repository does the database work.
  */
 public class AddItemDialog extends JDialog {
     private static final String NEW_LOCATION = "New location...";
@@ -42,7 +41,8 @@ public class AddItemDialog extends JDialog {
     private static final String[] FORMATS = { "CD", "DVD", "Blu-ray", "Vinyl", "Cassette", "Digital" };
 
     private final CatalogRepository repo;
-    private final Runnable onAdded;
+    private final MediaItem editingItem;
+    private final Runnable onSaved;
 
     // ---- item
     private final JComboBox<MediaType> typeBox = new JComboBox<>(MediaType.values());
@@ -84,11 +84,23 @@ public class AddItemDialog extends JDialog {
     private final JButton cancelButton = new JButton("Cancel");
 
     public AddItemDialog(Window owner, CatalogRepository repo, Runnable onAdded) {
-        super(owner, "Add Media Item", ModalityType.APPLICATION_MODAL);
+        this(owner, repo, null, onAdded);
+    }
+
+    public AddItemDialog(Window owner, CatalogRepository repo, MediaItem item, Runnable onSaved) {
+        super(owner, item == null ? "Add Media Item" : "Edit Media Item", ModalityType.APPLICATION_MODAL);
         this.repo = repo;
-        this.onAdded = onAdded;
+        this.editingItem = item;
+        this.onSaved = onSaved;
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
 
+        if (item != null) {
+            typeBox.setSelectedItem(item.mediaType);
+            barcodeField.setText(item.barcode);
+            barcodeField.setEnabled(false);
+            typeBox.setEnabled(false);
+            saveButton.setText("Save Changes");
+        }
         nameComponents();
         configureFields();
 
@@ -122,7 +134,7 @@ public class AddItemDialog extends JDialog {
     private JPanel buildHeader() {
         JPanel header = new JPanel(new BorderLayout());
         header.setBorder(BorderFactory.createEmptyBorder(14, 16, 6, 16));
-        JLabel title = new JLabel("Add Media Item");
+        JLabel title = new JLabel(editingItem == null ? "Add Media Item" : "Edit Media Item");
         title.setFont(title.getFont().deriveFont(Font.BOLD, 20f));
         JLabel hint = new JLabel("Fields marked * are required.");
         hint.setForeground(Color.GRAY);
@@ -313,8 +325,20 @@ public class AddItemDialog extends JDialog {
                     Throwable t = e.getCause() != null ? e.getCause() : e;
                     errorLabel.setText("Could not load locations and genres: " + t.getMessage());
                 }
-                locationBox.addItem(NEW_LOCATION);
+                boolean hasNewLocationOption = false;
+                for (int i = 0; i < locationBox.getItemCount(); i++) {
+                    if (NEW_LOCATION.equals(locationBox.getItemAt(i))) {
+                        hasNewLocationOption = true;
+                        break;
+                    }
+                }
+                if (!hasNewLocationOption) {
+                    locationBox.addItem(NEW_LOCATION);
+                }
                 locationBox.setSelectedIndex(0);
+                if (editingItem != null) {
+                    populateForm(editingItem);
+                }
                 saveButton.setEnabled(true);
             }
         }.execute();
@@ -334,7 +358,11 @@ public class AddItemDialog extends JDialog {
         new SwingWorker<Void, Void>() {
             @Override
             protected Void doInBackground() {
-                repo.addItem(item); // runs off the UI thread
+                if (editingItem == null) {
+                    repo.addItem(item);
+                } else {
+                    repo.updateItem(item);
+                }
                 return null;
             }
 
@@ -350,14 +378,60 @@ public class AddItemDialog extends JDialog {
                     return;
                 }
                 dispose();
+                String action = editingItem == null ? "Added" : "Updated";
                 JOptionPane.showMessageDialog(getOwner(),
-                        "Added \"" + item.displayTitle() + "\" (barcode " + item.barcode + ").",
-                        "Item Added", JOptionPane.INFORMATION_MESSAGE);
-                if (onAdded != null) {
-                    onAdded.run();
+                        action + " \"" + item.displayTitle() + "\" (barcode " + item.barcode + ").",
+                        "Item " + (editingItem == null ? "Added" : "Updated"), JOptionPane.INFORMATION_MESSAGE);
+                if (onSaved != null) {
+                    onSaved.run();
                 }
             }
         }.execute();
+    }
+
+    private void populateForm(MediaItem item) {
+        callField.setText(value(item.callNumber));
+        conditionBox.setSelectedItem(item.condition == null ? "Good" : item.condition);
+        onlineField.setText(value(item.onlineRef));
+        CatalogRepository.Location existingLocation = item.floorNum == null || item.collectionArea == null
+                ? null : new CatalogRepository.Location(item.floorNum, item.collectionArea);
+        boolean locationFound = false;
+        for (int i = 0; i < locationBox.getItemCount(); i++) {
+            Object location = locationBox.getItemAt(i);
+            if (existingLocation != null && existingLocation.equals(location)) {
+                locationBox.setSelectedItem(location);
+                locationFound = true;
+                break;
+            }
+        }
+        if (!locationFound) {
+            locationBox.setSelectedItem(NEW_LOCATION);
+            if (item.floorNum != null) {
+                floorSpinner.setValue(item.floorNum);
+            }
+            areaField.setText(value(item.collectionArea));
+        }
+
+        titleField.setText(value(item.title));
+        authorField.setText(value(item.author));
+        publisherField.setText(value(item.publisher));
+        yearField.setText(value(item.pubYear));
+        genreBox.setSelectedItem(value(item.genre));
+        descriptionArea.setText(value(item.description));
+        isbnField.setText(value(item.isbn));
+        bookPagesField.setText(value(item.pageCount));
+        doiField.setText(value(item.doi));
+        articlePagesField.setText(value(item.pageCount));
+        issnField.setText(value(item.issn));
+        periodicalTypeBox.setSelectedItem(item.periodicalType);
+        periodicalPagesField.setText(value(item.pageCount));
+        runtimeField.setText(value(item.runtimeMinutes));
+        formatBox.setSelectedItem(item.formatType);
+        equipmentTypeField.setText(value(item.equipmentType));
+    }
+
+    private static String value(Object value) {
+        return value == null ? "" : value.toString();
     }
 
     /** Checks the form and turns it into a MediaItem. Throws IllegalArgumentException with a readable message. */

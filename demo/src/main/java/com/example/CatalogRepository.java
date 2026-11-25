@@ -27,6 +27,9 @@ public interface CatalogRepository {
      */
     void addItem(MediaItem item);
 
+    /** Updates an existing item's editable details without changing its barcode or checkout status. */
+    void updateItem(MediaItem item);
+
     /** A shelf location: Location.Floor_Num + Location.Collection_Area. */
     record Location(int floor, String area) {
         @Override

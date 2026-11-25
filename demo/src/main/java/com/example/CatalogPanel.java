@@ -51,6 +51,7 @@ public class CatalogPanel extends JPanel {
     private final JLabel countLabel = new JLabel(" ");
 
     private final JButton detailsButton = new JButton("View Details");
+    private final JButton editItemButton = new JButton("Edit Selected...");
     private final JButton checkoutButton = new JButton("Check Out Selected");
     private CheckoutRepository checkoutRepo; // null until enableCheckout() is called
     private String checkoutUser;
@@ -123,14 +124,22 @@ public class CatalogPanel extends JPanel {
         JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         detailsButton.setEnabled(false); // enabled once a row is selected
         buttons.add(detailsButton);
-        // Role-specific buttons. They are placeholders for now; later steps give them
-        // behavior.
         if (role == Role.ADMIN) {
             JButton add = new JButton("Add Media Item...");
             add.setName("addItem");
             add.addActionListener(e -> new AddItemDialog(SwingUtilities.getWindowAncestor(this), repo,
-                    this::afterItemAdded).setVisible(true));
+                    this::afterItemSaved).setVisible(true));
             buttons.add(add);
+            editItemButton.setName("editItem");
+            editItemButton.setEnabled(false);
+            editItemButton.addActionListener(e -> {
+                MediaItem item = selectedItem();
+                if (item != null) {
+                    new AddItemDialog(SwingUtilities.getWindowAncestor(this), repo, item,
+                            this::afterItemSaved).setVisible(true);
+                }
+            });
+            buttons.add(editItemButton);
         } else {
             checkoutButton.setEnabled(false); // enabled when an available item is selected
             buttons.add(checkoutButton);
@@ -171,6 +180,7 @@ public class CatalogPanel extends JPanel {
         });
         table.getSelectionModel().addListSelectionListener(e -> {
             detailsButton.setEnabled(table.getSelectedRow() >= 0);
+            editItemButton.setEnabled(role == Role.ADMIN && table.getSelectedRow() >= 0);
             updateCheckoutButton();
         });
         checkoutButton.addActionListener(e -> {
@@ -252,8 +262,8 @@ public class CatalogPanel extends JPanel {
                 checkoutRepo == null ? null : this::checkOutItem).setVisible(true);
     }
 
-    /** After an admin adds an item: pick up any new genre for the filter, then reload the list. */
-    private void afterItemAdded() {
+    /** After an admin saves an item, refresh the genre filter and catalog. */
+    private void afterItemSaved() {
         Object selected = genreBox.getSelectedItem();
         new SwingWorker<List<String>, Void>() {
             @Override

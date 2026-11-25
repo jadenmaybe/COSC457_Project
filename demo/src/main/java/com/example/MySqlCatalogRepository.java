@@ -234,13 +234,101 @@ public class MySqlCatalogRepository implements CatalogRepository {
         m.status = ItemStatus.AVAILABLE;
     }
 
-    /** Runs one INSERT with the given parameters (null becomes SQL NULL). */
-    private static void run(Connection c, String sql, Object... params) throws SQLException {
+    /** Updates an existing item's descriptive, location, and media-specific fields in one transaction. */
+    @Override
+    public void updateItem(MediaItem m) {
+        if (m.barcode == null || m.barcode.isBlank()) {
+            throw new IllegalStateException("A barcode is required.");
+        }
+        if (m.floorNum == null || m.collectionArea == null || m.collectionArea.isBlank()) {
+            throw new IllegalStateException("Choose a location.");
+        }
+        try (Connection c = DatabaseConnection.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                Integer recordId = null;
+                try (PreparedStatement ps = c.prepareStatement(
+                        "SELECT RecordID FROM Item WHERE Barcode = ? FOR UPDATE")) {
+                    ps.setString(1, m.barcode);
+                    try (ResultSet rs = ps.executeQuery()) {
+                        if (!rs.next()) {
+                            throw new IllegalStateException("No item with barcode " + m.barcode + " exists.");
+                        }
+                        recordId = (Integer) rs.getObject("RecordID");
+                    }
+                }
+
+                run(c, "INSERT IGNORE INTO Location (Floor_Num, Collection_Area) VALUES (?, ?)",
+                        m.floorNum, m.collectionArea);
+                requireOneUpdated(run(c, "UPDATE Item SET Call_Number = ?, Floor_Num = ?, Collection_Area = ?, "
+                        + "`Condition` = ?, Online_Ref = ? WHERE Barcode = ?",
+                        m.callNumber, m.floorNum, m.collectionArea, m.condition, m.onlineRef, m.barcode),
+                        "item");
+
+                if (m.mediaType == MediaType.EQUIPMENT) {
+                    if (recordId != null) {
+                        throw new IllegalStateException("The media type of an existing item cannot be changed.");
+                    }
+                    requireOneUpdated(run(c, "UPDATE Equipment SET Type = ? WHERE Barcode = ?",
+                            m.equipmentType, m.barcode), "equipment details");
+                } else {
+                    if (recordId == null) {
+                        throw new IllegalStateException("The media type of an existing item cannot be changed.");
+                    }
+                    requireOneUpdated(run(c, "UPDATE Record_Info SET Author = ?, Title = ?, Publisher = ?, "
+                            + "Description = ?, Pub_Year = ?, Genre = ? WHERE RecordID = ?",
+                            m.author, m.title, m.publisher, m.description, m.pubYear, m.genre, recordId),
+                            "description");
+                    switch (m.mediaType) {
+                        case BOOK -> {
+                            requireOneUpdated(run(c, "UPDATE Print_Media SET Page_Count = ? WHERE Barcode = ?",
+                                    m.pageCount, m.barcode), "page count");
+                            requireOneUpdated(run(c, "UPDATE Book SET ISBN = ? WHERE Barcode = ?",
+                                    m.isbn, m.barcode), "book details");
+                        }
+                        case ARTICLE -> {
+                            requireOneUpdated(run(c, "UPDATE Print_Media SET Page_Count = ? WHERE Barcode = ?",
+                                    m.pageCount, m.barcode), "page count");
+                            requireOneUpdated(run(c, "UPDATE Article SET DOI = ? WHERE Barcode = ?",
+                                    m.doi, m.barcode), "article details");
+                        }
+                        case PERIODICAL -> {
+                            requireOneUpdated(run(c, "UPDATE Print_Media SET Page_Count = ? WHERE Barcode = ?",
+                                    m.pageCount, m.barcode), "page count");
+                            requireOneUpdated(run(c, "UPDATE Periodical SET ISSN = ?, Type = ? WHERE Barcode = ?",
+                                    m.issn, m.periodicalType, m.barcode), "periodical details");
+                        }
+                        case VIDEO_AUDIO -> requireOneUpdated(run(c,
+                                "UPDATE Video_Audio_Media SET Runtime = ?, Format_Type = ? WHERE Barcode = ?",
+                                m.runtimeMinutes, m.formatType, m.barcode), "video/audio details");
+                        case EQUIPMENT -> throw new IllegalStateException("Invalid media type.");
+                    }
+                }
+                c.commit();
+            } catch (SQLException | RuntimeException e) {
+                c.rollback();
+                throw e;
+            }
+        } catch (SQLException e) {
+            throw new IllegalStateException("Could not update the item: " + e.getMessage(), e);
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException("Could not read config.properties: " + e.getMessage(), e);
+        }
+    }
+
+    private static void requireOneUpdated(int count, String section) {
+        if (count != 1) {
+            throw new IllegalStateException("Could not update the item's " + section + ".");
+        }
+    }
+
+    /** Runs one statement with the given parameters (null becomes SQL NULL). */
+    private static int run(Connection c, String sql, Object... params) throws SQLException {
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             for (int i = 0; i < params.length; i++) {
                 ps.setObject(i + 1, params[i]);
             }
-            ps.executeUpdate();
+            return ps.executeUpdate();
         }
     }
 

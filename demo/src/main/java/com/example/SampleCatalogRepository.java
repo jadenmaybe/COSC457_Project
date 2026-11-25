@@ -108,6 +108,36 @@ public class SampleCatalogRepository implements CatalogRepository {
         items.add(item);
     }
 
+    @Override
+    public void updateItem(MediaItem item) {
+        MediaItem existing = findByBarcode(item.barcode);
+        if (existing == null) {
+            throw new IllegalStateException("No item with barcode " + item.barcode + " exists.");
+        }
+        if (existing.mediaType != item.mediaType) {
+            throw new IllegalStateException("The media type of an existing item cannot be changed.");
+        }
+        existing.callNumber = item.callNumber;
+        existing.condition = item.condition;
+        existing.onlineRef = item.onlineRef;
+        existing.floorNum = item.floorNum;
+        existing.collectionArea = item.collectionArea;
+        existing.title = item.title;
+        existing.author = item.author;
+        existing.publisher = item.publisher;
+        existing.description = item.description;
+        existing.pubYear = item.pubYear;
+        existing.genre = item.genre;
+        existing.isbn = item.isbn;
+        existing.pageCount = item.pageCount;
+        existing.doi = item.doi;
+        existing.issn = item.issn;
+        existing.periodicalType = item.periodicalType;
+        existing.runtimeMinutes = item.runtimeMinutes;
+        existing.formatType = item.formatType;
+        existing.equipmentType = item.equipmentType;
+    }
+
     private static boolean matches(MediaItem i, CatalogQuery.Field field, String text) {
         return switch (field) {
             case TITLE -> contains(i.displayTitle(), text);
