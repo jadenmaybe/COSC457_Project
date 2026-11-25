@@ -136,6 +136,114 @@ public class MySqlCatalogRepository implements CatalogRepository {
         return out;
     }
 
+    @Override
+    public List<Location> locations() {
+        List<Location> out = new ArrayList<>();
+        try (Connection c = DatabaseConnection.getConnection();
+                Statement st = c.createStatement();
+                ResultSet rs = st.executeQuery(
+                        "SELECT Floor_Num, Collection_Area FROM Location ORDER BY Floor_Num, Collection_Area")) {
+            while (rs.next()) {
+                out.add(new Location(rs.getInt(1), rs.getString(2)));
+            }
+        } catch (SQLException | java.io.IOException e) {
+            throw new IllegalStateException("Could not load locations: " + e.getMessage(), e);
+        }
+        return out;
+    }
+
+    /**
+     * Adds an item across the tables it lives in (Location, Record_Info, Item, then Print_Media + Book/Article/
+     * Periodical, or Video_Audio_Media, or Equipment). One transaction: either every row is saved or none is.
+     */
+    @Override
+    public void addItem(MediaItem m) {
+        if (m.barcode == null || m.barcode.isBlank()) {
+            throw new IllegalStateException("A barcode is required.");
+        }
+        if (m.floorNum == null || m.collectionArea == null || m.collectionArea.isBlank()) {
+            throw new IllegalStateException("Choose a location.");
+        }
+        try (Connection c = DatabaseConnection.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                try (PreparedStatement ps = c.prepareStatement("SELECT 1 FROM Item WHERE Barcode = ?")) {
+                    ps.setString(1, m.barcode);
+                    try (ResultSet rs = ps.executeQuery()) {
+                        if (rs.next()) {
+                            throw new IllegalStateException(
+                                    "An item with barcode " + m.barcode + " already exists.");
+                        }
+                    }
+                }
+
+                // Item has a foreign key to Location, so the location row must exist first.
+                run(c, "INSERT IGNORE INTO Location (Floor_Num, Collection_Area) VALUES (?, ?)",
+                        m.floorNum, m.collectionArea);
+
+                // Equipment has no Record_Info row. Everything else does; RecordID is not auto-numbered.
+                Integer recordId = null;
+                if (m.mediaType != MediaType.EQUIPMENT) {
+                    try (Statement st = c.createStatement();
+                            ResultSet rs = st.executeQuery("SELECT COALESCE(MAX(RecordID), 0) + 1 FROM Record_Info")) {
+                        rs.next();
+                        recordId = rs.getInt(1);
+                    }
+                    run(c, "INSERT INTO Record_Info (RecordID, Author, Title, Publisher, Description, Pub_Year, Genre)"
+                            + " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                            recordId, m.author, m.title, m.publisher, m.description, m.pubYear, m.genre);
+                }
+
+                run(c, "INSERT INTO Item (Barcode, Call_Number, RecordID, Floor_Num, Collection_Area, `Condition`, "
+                        + "`Status`, Online_Ref) VALUES (?, ?, ?, ?, ?, ?, 'Available', ?)",
+                        m.barcode, m.callNumber, recordId, m.floorNum, m.collectionArea, m.condition, m.onlineRef);
+
+                switch (m.mediaType) {
+                    case BOOK -> {
+                        run(c, "INSERT INTO Print_Media (Barcode, Page_Count) VALUES (?, ?)", m.barcode, m.pageCount);
+                        run(c, "INSERT INTO Book (Barcode, ISBN) VALUES (?, ?)", m.barcode, m.isbn);
+                    }
+                    case ARTICLE -> {
+                        run(c, "INSERT INTO Print_Media (Barcode, Page_Count) VALUES (?, ?)", m.barcode, m.pageCount);
+                        run(c, "INSERT INTO Article (Barcode, DOI) VALUES (?, ?)", m.barcode, m.doi);
+                    }
+                    case PERIODICAL -> {
+                        run(c, "INSERT INTO Print_Media (Barcode, Page_Count) VALUES (?, ?)", m.barcode, m.pageCount);
+                        run(c, "INSERT INTO Periodical (Barcode, ISSN, Type) VALUES (?, ?, ?)",
+                                m.barcode, m.issn, m.periodicalType);
+                    }
+                    case VIDEO_AUDIO -> run(c,
+                            "INSERT INTO Video_Audio_Media (Barcode, Runtime, Format_Type) VALUES (?, ?, ?)",
+                            m.barcode, m.runtimeMinutes, m.formatType);
+                    case EQUIPMENT -> run(c, "INSERT INTO Equipment (Barcode, Type) VALUES (?, ?)",
+                            m.barcode, m.equipmentType);
+                }
+                c.commit();
+            } catch (SQLException | RuntimeException e) {
+                c.rollback();
+                throw e;
+            }
+        } catch (SQLException e) {
+            if (e.getErrorCode() == 1062) { // duplicate key: someone added an item/record at the same moment
+                throw new IllegalStateException("Another change happened at the same time. Please try again.", e);
+            }
+            throw new IllegalStateException("Could not add the item: " + e.getMessage(), e);
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException("Could not read config.properties: " + e.getMessage(), e);
+        }
+        m.status = ItemStatus.AVAILABLE;
+    }
+
+    /** Runs one INSERT with the given parameters (null becomes SQL NULL). */
+    private static void run(Connection c, String sql, Object... params) throws SQLException {
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            for (int i = 0; i < params.length; i++) {
+                ps.setObject(i + 1, params[i]);
+            }
+            ps.executeUpdate();
+        }
+    }
+
     private List<MediaItem> query(String sql, List<Object> params) {
         try (Connection c = DatabaseConnection.getConnection();
                 PreparedStatement ps = c.prepareStatement(sql)) {

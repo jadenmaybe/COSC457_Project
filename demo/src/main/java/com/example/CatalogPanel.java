@@ -127,8 +127,9 @@ public class CatalogPanel extends JPanel {
         // behavior.
         if (role == Role.ADMIN) {
             JButton add = new JButton("Add Media Item...");
-            add.setEnabled(false);
-            add.setToolTipText("Placeholder");
+            add.setName("addItem");
+            add.addActionListener(e -> new AddItemDialog(SwingUtilities.getWindowAncestor(this), repo,
+                    this::afterItemAdded).setVisible(true));
             buttons.add(add);
         } else {
             checkoutButton.setEnabled(false); // enabled when an available item is selected
@@ -249,6 +250,39 @@ public class CatalogPanel extends JPanel {
     private void showDetails(MediaItem item) {
         new ItemDetailsDialog(SwingUtilities.getWindowAncestor(this), item, role,
                 checkoutRepo == null ? null : this::checkOutItem).setVisible(true);
+    }
+
+    /** After an admin adds an item: pick up any new genre for the filter, then reload the list. */
+    private void afterItemAdded() {
+        Object selected = genreBox.getSelectedItem();
+        new SwingWorker<List<String>, Void>() {
+            @Override
+            protected List<String> doInBackground() {
+                return repo.genres();
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    List<String> genres = get();
+                    loadingFilters = true;
+                    genreBox.removeAllItems();
+                    genreBox.addItem(ALL_GENRES);
+                    for (String g : genres) {
+                        genreBox.addItem(g);
+                    }
+                    genreBox.setSelectedItem(selected); // keeps the filter if it still exists
+                    if (genreBox.getSelectedIndex() < 0) {
+                        genreBox.setSelectedIndex(0);
+                    }
+                } catch (Exception ignored) {
+                    // keep the old genre list; the item list below still reloads
+                } finally {
+                    loadingFilters = false;
+                }
+                runSearch();
+            }
+        }.execute();
     }
 
     // ------------------------------------------------------------------ checking out

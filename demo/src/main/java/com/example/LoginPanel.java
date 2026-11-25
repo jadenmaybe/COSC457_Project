@@ -56,10 +56,6 @@ public class LoginPanel extends JPanel {
         title.setFont(title.getFont().deriveFont(Font.BOLD, 22f));
         title.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        JLabel subtitle = new JLabel("Please sign in to continue");
-        subtitle.setForeground(Color.GRAY);
-        subtitle.setAlignmentX(Component.CENTER_ALIGNMENT);
-
         ButtonGroup group = new ButtonGroup();
         group.add(userOption);
         group.add(adminOption);
@@ -77,15 +73,8 @@ public class LoginPanel extends JPanel {
         messageLabel.setForeground(new Color(0xB00020));
         messageLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        JLabel demoNote = new JLabel("<html><center>Any username and password works.<br>"
-                + "Sample checkouts exist for the users \"alice\" and \"bob\".</center></html>");
-        demoNote.setFont(demoNote.getFont().deriveFont(Font.ITALIC, 11f));
-        demoNote.setForeground(Color.GRAY);
-        demoNote.setAlignmentX(Component.CENTER_ALIGNMENT);
-
         card.add(title);
         card.add(Box.createVerticalStrut(4));
-        card.add(subtitle);
         card.add(Box.createVerticalStrut(16));
         card.add(roleRow);
         card.add(Box.createVerticalStrut(8));
@@ -95,7 +84,6 @@ public class LoginPanel extends JPanel {
         card.add(Box.createVerticalStrut(8));
         card.add(loginButton);
         card.add(Box.createVerticalStrut(12));
-        card.add(demoNote);
         return card;
     }
 

@@ -17,4 +17,21 @@ public interface CatalogRepository {
 
     /** Distinct genres, for the genre filter. */
     List<String> genres();
+
+    /** Every shelf location that exists (Location table), for the Add Item form. */
+    List<Location> locations();
+
+    /**
+     * Adds a new item. It starts out Available. Throws IllegalStateException with a user-readable message if it
+     * can't be added (for example, the barcode is already taken).
+     */
+    void addItem(MediaItem item);
+
+    /** A shelf location: Location.Floor_Num + Location.Collection_Area. */
+    record Location(int floor, String area) {
+        @Override
+        public String toString() {
+            return "Floor " + floor + ", " + area;
+        }
+    }
 }

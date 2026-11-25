@@ -1,5 +1,6 @@
 package com.example;
 
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
@@ -8,7 +9,7 @@ import java.util.stream.Collectors;
 /** Hard-coded sample items so the Catalog screen has something to show. TODO: replace with a MySQL version. */
 public class SampleCatalogRepository implements CatalogRepository {
 
-    private final List<MediaItem> items = List.of(
+    private final List<MediaItem> items = new ArrayList<>(List.of(
             new MediaItem("BC100", MediaType.BOOK).call("FIC-ORW-1984").condition("Good")
                     .location(1, "Fiction").status(ItemStatus.CHECKED_OUT)
                     .record("1984", "George Orwell", "Secker & Warburg", 1949, "Fiction", "Dystopian novel")
@@ -65,7 +66,7 @@ public class SampleCatalogRepository implements CatalogRepository {
                     .location(1, "Fiction")
                     .record("The Hobbit", "J.R.R. Tolkien", "Allen & Unwin", 1937, "Fantasy",
                             "Fantasy adventure novel")
-                    .book("978-0547928227", 300));
+                    .book("978-0547928227", 300)));
 
     @Override
     public List<MediaItem> search(CatalogQuery q) {
@@ -88,6 +89,23 @@ public class SampleCatalogRepository implements CatalogRepository {
     public List<String> genres() {
         return items.stream().map(i -> i.genre).filter(g -> g != null && !g.isBlank())
                 .distinct().sorted().collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Location> locations() {
+        return items.stream().filter(i -> i.floorNum != null && i.collectionArea != null)
+                .map(i -> new Location(i.floorNum, i.collectionArea)).distinct()
+                .sorted(Comparator.comparingInt(Location::floor).thenComparing(Location::area))
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public void addItem(MediaItem item) {
+        if (findByBarcode(item.barcode) != null) {
+            throw new IllegalStateException("An item with barcode " + item.barcode + " already exists.");
+        }
+        item.status = ItemStatus.AVAILABLE;
+        items.add(item);
     }
 
     private static boolean matches(MediaItem i, CatalogQuery.Field field, String text) {
