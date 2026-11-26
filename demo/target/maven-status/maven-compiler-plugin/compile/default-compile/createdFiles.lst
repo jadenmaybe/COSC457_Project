@@ -60,4 +60,5 @@ com\example\ReservationRecord.class
 com\example\DatabaseConnection.class
 com\example\MediaItem.class
 com\example\PlaceholderPanel.class
+com\example\LogoPlaceholder.class
 com\example\CatalogRepository$Location.class

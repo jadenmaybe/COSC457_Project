@@ -37,7 +37,11 @@ public class MainPanel extends JPanel {
         right.add(who);
         right.add(logout);
 
-        header.add(title, BorderLayout.WEST);
+        JPanel left = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 10, 0));
+        left.add(new LogoPlaceholder(48, 48)); // swap in src/main/resources/logo.png
+        left.add(title);
+
+        header.add(left, BorderLayout.WEST);
         header.add(right, BorderLayout.EAST);
         return header;
     }

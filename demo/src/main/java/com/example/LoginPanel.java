@@ -36,8 +36,15 @@ public class LoginPanel extends JPanel {
     public LoginPanel(AuthService auth, Consumer<Session> onSuccess) {
         this.auth = auth;
         this.onSuccess = onSuccess;
-        setLayout(new GridBagLayout()); // centers the card in the window
-        add(buildCard());
+        setLayout(new GridBagLayout()); // centers the logo + card in the window
+        GridBagConstraints c = new GridBagConstraints();
+        c.gridx = 0;
+        c.gridy = 0;
+        c.insets = new Insets(0, 0, 20, 0);
+        add(new LogoPlaceholder(240, 100), c); // swap in src/main/resources/logo.png
+        c.gridy = 1;
+        c.insets = new Insets(0, 0, 0, 0);
+        add(buildCard(), c);
 
         loginButton.addActionListener(e -> attemptLogin());
         // Pressing Enter in either field logs in.
