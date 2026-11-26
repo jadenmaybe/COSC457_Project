@@ -29,6 +29,7 @@ import java.util.List;
 
 /**
  * The signed-in user's own checkouts: what they have now, when it is due, and what they have returned.
+ * Books they have reserved are listed too, with the status Reserved (only for the user who reserved them).
  * Unlike the catalog, a user sees their OWN items' real status here, including Overdue.
  */
 public class MyCheckoutsPanel extends JPanel {
@@ -143,10 +144,11 @@ public class MyCheckoutsPanel extends JPanel {
 
     /** Reloads from the repository. Called when the tab is shown and whenever the filter changes. */
     public void refresh() {
-        new SwingWorker<List<CheckoutRecord>, Void>() {
+        new SwingWorker<Loaded, Void>() {
             @Override
-            protected List<CheckoutRecord> doInBackground() {
-                return repo.forUser(session.username()); // runs off the UI thread
+            protected Loaded doInBackground() {
+                // runs off the UI thread
+                return new Loaded(repo.forUser(session.username()), repo.reservationsFor(session.username()));
             }
 
             @Override
@@ -162,21 +164,46 @@ public class MyCheckoutsPanel extends JPanel {
         }.execute();
     }
 
-    private void show(List<CheckoutRecord> mine) {
+    /** What one refresh loads: the user's checkouts and their active reservations. */
+    private record Loaded(List<CheckoutRecord> checkouts, List<ReservationRecord> reservations) {
+    }
+
+    /** One table row: either a checkout (any status) or a reservation (dates blank, status Reserved). */
+    private record Row(MediaItem item, LocalDate checkedOutOn, LocalDate dueOn, String dueIn, LocalDate returnedOn,
+                       CheckoutStatus status) {
+        static Row of(CheckoutRecord r) {
+            return new Row(r.item, r.checkedOutOn, r.dueOn, r.dueInText(), r.returnedOn, r.status());
+        }
+
+        static Row of(ReservationRecord r) {
+            return new Row(r.item, null, null, "", null, r.status());
+        }
+    }
+
+    private void show(Loaded loaded) {
+        List<CheckoutRecord> mine = loaded.checkouts();
         long open = mine.stream().filter(CheckoutRecord::isOpen).count();
         long overdue = mine.stream().filter(r -> r.status() == CheckoutStatus.OVERDUE).count();
-        summaryLabel.setText(open == 1 ? "1 item checked out" : open + " items checked out");
+        int reserved = loaded.reservations().size();
+        summaryLabel.setText((open == 1 ? "1 item checked out" : open + " items checked out")
+                + (reserved == 0 ? "" : ", " + reserved + " reserved"));
         overdueLabel.setText(overdue == 0 ? " " : overdue + " overdue: please return as soon as you can");
 
         String choice = (String) filterBox.getSelectedItem();
-        List<CheckoutRecord> shown = new ArrayList<>();
+        List<Row> shown = new ArrayList<>();
         for (CheckoutRecord r : mine) {
             boolean keep = CURRENT.equals(choice) ? r.isOpen() : !RETURNED.equals(choice) || !r.isOpen();
             if (keep) {
-                shown.add(r);
+                shown.add(Row.of(r));
             }
         }
-        model.setRecords(shown);
+        // Reservations are things the user has "now", so they show under "Items I have now" and "All items".
+        if (!RETURNED.equals(choice)) {
+            for (ReservationRecord r : loaded.reservations()) {
+                shown.add(Row.of(r));
+            }
+        }
+        model.setRows(shown);
         countLabel.setText(shown.isEmpty() ? emptyMessage(choice)
                 : shown.size() + (shown.size() == 1 ? " item" : " items"));
     }
@@ -196,8 +223,8 @@ public class MyCheckoutsPanel extends JPanel {
         if (viewRow < 0) {
             return;
         }
-        CheckoutRecord r = model.recordAt(table.convertRowIndexToModel(viewRow));
-        new ItemDetailsDialog(SwingUtilities.getWindowAncestor(this), r.item, session.role()).setVisible(true);
+        Row r = model.rowAt(table.convertRowIndexToModel(viewRow));
+        new ItemDetailsDialog(SwingUtilities.getWindowAncestor(this), r.item(), session.role()).setVisible(true);
     }
 
     // ------------------------------------------------------------------ table model + renderers
@@ -206,20 +233,20 @@ public class MyCheckoutsPanel extends JPanel {
         static final int DUE_IN = 5;
         private static final String[] COLUMNS = {
                 "Title", "Author", "Media Type", "Checked Out", "Due Date", "Due In", "Returned", "Status"};
-        private List<CheckoutRecord> records = new ArrayList<>();
+        private List<Row> rows = new ArrayList<>();
 
-        void setRecords(List<CheckoutRecord> r) {
-            records = new ArrayList<>(r);
+        void setRows(List<Row> r) {
+            rows = new ArrayList<>(r);
             fireTableDataChanged();
         }
 
-        CheckoutRecord recordAt(int row) {
-            return records.get(row);
+        Row rowAt(int row) {
+            return rows.get(row);
         }
 
         @Override
         public int getRowCount() {
-            return records.size();
+            return rows.size();
         }
 
         @Override
@@ -243,15 +270,15 @@ public class MyCheckoutsPanel extends JPanel {
 
         @Override
         public Object getValueAt(int row, int col) {
-            CheckoutRecord r = records.get(row);
+            Row r = rows.get(row);
             return switch (col) {
-                case 0 -> r.item.displayTitle();
-                case 1 -> r.item.author;
-                case 2 -> r.item.mediaType.toString();
-                case 3 -> r.checkedOutOn;
-                case 4 -> r.dueOn;
-                case 5 -> r.dueInText();
-                case 6 -> r.returnedOn;
+                case 0 -> r.item().displayTitle();
+                case 1 -> r.item().author;
+                case 2 -> r.item().mediaType.toString();
+                case 3 -> r.checkedOutOn();
+                case 4 -> r.dueOn();
+                case 5 -> r.dueIn();
+                case 6 -> r.returnedOn();
                 case 7 -> r.status();
                 default -> null;
             };

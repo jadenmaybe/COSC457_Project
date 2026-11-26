@@ -75,6 +75,7 @@ public class SampleCatalogRepository implements CatalogRepository {
                 .filter(i -> q.mediaType() == null || i.mediaType == q.mediaType())
                 .filter(i -> q.genre() == null || q.genre().equalsIgnoreCase(i.genre))
                 .filter(i -> !q.availableOnly() || i.isAvailable())
+                .filter(i -> !q.onlineOnly() || i.onlineRef != null)
                 .filter(i -> text.isEmpty() || matches(i, q.field(), text))
                 .sorted(Comparator.comparing(i -> i.displayTitle().toLowerCase(Locale.ROOT)))
                 .collect(Collectors.toList());

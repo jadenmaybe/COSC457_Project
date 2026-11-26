@@ -9,7 +9,9 @@ public enum ItemStatus {
     AVAILABLE("Available"),
     CHECKED_OUT("Checked Out"),
     ON_HOLD("On Hold"),
-    OVERDUE("Overdue");
+    OVERDUE("Overdue"),
+    ON_HOLD_FOR_YOU("On Hold for you"),
+    UNAVAILABLE("Unavailable");
 
     private final String label;
 

@@ -13,6 +13,7 @@ import java.util.stream.Collectors;
  */
 public class SampleCheckoutRepository implements CheckoutRepository {
     private final List<CheckoutRecord> records = new ArrayList<>();
+    private final List<ReservationRecord> reservations = new ArrayList<>();
 
     public SampleCheckoutRepository(CatalogRepository catalog) {
         // borrower, barcode, checked out N days ago, due in N days (negative = past due), returned N days ago (or null)
@@ -52,10 +53,20 @@ public class SampleCheckoutRepository implements CheckoutRepository {
     }
 
     @Override
+    public List<ReservationRecord> reservationsFor(String username) {
+        return reservations.stream()
+                .filter(r -> r.borrower.equalsIgnoreCase(username))
+                .sorted(Comparator.comparing((ReservationRecord r) -> r.reservedOn))
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public CheckoutRecord checkOut(String username, MediaItem item) {
         if (!item.isAvailable()) {
             throw new IllegalStateException("This item is not available to check out.");
         }
+        // Checking out a book you had reserved fulfils the reservation.
+        reservations.removeIf(r -> r.borrower.equalsIgnoreCase(username) && r.item.barcode.equals(item.barcode));
         LocalDate today = LocalDate.now();
         CheckoutRecord record = new CheckoutRecord(username, item, today, today.plusDays(LOAN_DAYS), null);
         records.add(record);
@@ -74,5 +85,28 @@ public class SampleCheckoutRepository implements CheckoutRepository {
 
         record.returnedOn = LocalDate.now();
         record.item.status = ItemStatus.AVAILABLE;
+    }
+
+    @Override
+    public LocalDate reserve(String username, MediaItem item) {
+        if (item.mediaType != MediaType.BOOK) {
+            throw new IllegalStateException("Only books can be reserved.");
+        }
+        List<CheckoutRecord> open = records.stream()
+                .filter(r -> r.item.barcode.equals(item.barcode) && r.isOpen())
+                .sorted(Comparator.comparing((CheckoutRecord r) -> r.dueOn))
+                .collect(Collectors.toList());
+        if (open.isEmpty()) {
+            throw new IllegalStateException("Nobody has this book checked out, so it can't be reserved. Check it out instead.");
+        }
+        if (open.stream().anyMatch(r -> r.borrower.equalsIgnoreCase(username))) {
+            throw new IllegalStateException("You already have this book checked out, so you can't reserve it.");
+        }
+        if (reservations.stream().anyMatch(
+                r -> r.borrower.equalsIgnoreCase(username) && r.item.barcode.equals(item.barcode))) {
+            throw new IllegalStateException("You have already reserved this book.");
+        }
+        reservations.add(new ReservationRecord(username, item, LocalDate.now()));
+        return open.get(0).dueOn;
     }
 }

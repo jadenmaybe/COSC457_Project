@@ -91,7 +91,7 @@ public class AdminCheckoutsPanel extends JPanel {
         JPanel filters = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 2));
         filters.add(new JLabel("Show:"));
         filters.add(filterBox);
-        filters.add(new JLabel("Search borrower or item:"));
+        filters.add(new JLabel("Search borrower, user ID or item:"));
         filters.add(searchField);
         filters.setAlignmentX(Component.LEFT_ALIGNMENT);
 
@@ -111,8 +111,9 @@ public class AdminCheckoutsPanel extends JPanel {
         table.getTableHeader().setReorderingAllowed(false);
         table.setDefaultRenderer(LocalDate.class, new DateRenderer());
         table.setDefaultRenderer(CheckoutStatus.class, new StatusRenderer());
+        table.setDefaultRenderer(Integer.class, new IdRenderer());
 
-        int[] widths = {100, 220, 140, 110, 110, 110, 110, 110, 100};
+        int[] widths = {100, 70, 220, 140, 110, 110, 110, 110, 110, 100};
         for (int i = 0; i < widths.length; i++) {
             table.getColumnModel().getColumn(i).setPreferredWidth(widths[i]);
         }
@@ -218,6 +219,7 @@ public class AdminCheckoutsPanel extends JPanel {
                     || RETURNED.equals(filter) && !record.isOpen();
             boolean matchesSearch = search.isEmpty()
                     || contains(record.borrower, search)
+                    || record.borrowerId != null && String.valueOf(record.borrowerId).equals(search)
                     || contains(record.item.displayTitle(), search)
                     || contains(record.item.author, search)
                     || contains(record.item.barcode, search);
@@ -240,10 +242,10 @@ public class AdminCheckoutsPanel extends JPanel {
     }
 
     private static class CheckoutsTableModel extends AbstractTableModel {
-        static final int DUE_IN = 6;
+        static final int DUE_IN = 7;
         private static final String[] COLUMNS = {
-                "Borrower", "Title", "Author", "Media Type", "Checked Out", "Due Date", "Due In", "Returned",
-                "Status"
+                "Borrower", "User ID", "Title", "Author", "Media Type", "Checked Out", "Due Date", "Due In",
+                "Returned", "Status"
         };
         private List<CheckoutRecord> records = new ArrayList<>();
 
@@ -274,8 +276,9 @@ public class AdminCheckoutsPanel extends JPanel {
         @Override
         public Class<?> getColumnClass(int column) {
             return switch (column) {
-                case 4, 5, 7 -> LocalDate.class;
-                case 8 -> CheckoutStatus.class;
+                case 1 -> Integer.class;
+                case 5, 6, 8 -> LocalDate.class;
+                case 9 -> CheckoutStatus.class;
                 default -> String.class;
             };
         }
@@ -285,14 +288,15 @@ public class AdminCheckoutsPanel extends JPanel {
             CheckoutRecord record = records.get(row);
             return switch (column) {
                 case 0 -> record.borrower;
-                case 1 -> record.item.displayTitle();
-                case 2 -> record.item.author;
-                case 3 -> record.item.mediaType.toString();
-                case 4 -> record.checkedOutOn;
-                case 5 -> record.dueOn;
-                case 6 -> record.dueInText();
-                case 7 -> record.returnedOn;
-                case 8 -> record.status();
+                case 1 -> record.borrowerId;
+                case 2 -> record.item.displayTitle();
+                case 3 -> record.item.author;
+                case 4 -> record.item.mediaType.toString();
+                case 5 -> record.checkedOutOn;
+                case 6 -> record.dueOn;
+                case 7 -> record.dueInText();
+                case 8 -> record.returnedOn;
+                case 9 -> record.status();
                 default -> null;
             };
         }
@@ -304,6 +308,18 @@ public class AdminCheckoutsPanel extends JPanel {
         @Override
         protected void setValue(Object value) {
             setText(value instanceof LocalDate date ? date.format(FORMAT) : "");
+        }
+    }
+
+    /** Left-aligned, plain digits (no thousands separators) so it reads as an ID, not a quantity. */
+    private static class IdRenderer extends DefaultTableCellRenderer {
+        IdRenderer() {
+            setHorizontalAlignment(LEFT);
+        }
+
+        @Override
+        protected void setValue(Object value) {
+            setText(value == null ? "" : value.toString());
         }
     }
 

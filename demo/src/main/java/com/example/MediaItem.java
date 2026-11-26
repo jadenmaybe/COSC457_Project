@@ -21,6 +21,7 @@ public class MediaItem {
     public ItemStatus status = ItemStatus.AVAILABLE; // Item.Status
     public String condition; // Item.Condition (Good, Fair, ...)
     public String onlineRef; // Item.Online_Ref (link, when available online)
+    public boolean onHoldForCurrentUser;
 
     // ---- Location table ----
     public Integer floorNum; // Location.Floor_Num
@@ -142,14 +143,31 @@ public class MediaItem {
     }
 
     /**
+     * Only books that are out on loan can be reserved. (Whether the borrower is somebody else is checked by
+     * CheckoutRepository.reserve, which can see who has it.)
+     */
+    public boolean canBeReserved() {
+        return mediaType == MediaType.BOOK && (status == ItemStatus.CHECKED_OUT || status == ItemStatus.OVERDUE);
+    }
+
+    /**
      * The status this viewer is allowed to see. Only admins see Overdue; regular
      * users just see
      * that the item is Checked Out. Every screen should show status through this
      * method.
      */
     public ItemStatus statusFor(Role viewer) {
-        if (status == ItemStatus.OVERDUE && viewer != Role.ADMIN) {
+        if (viewer == Role.ADMIN) {
+            return status;
+        }
+        if (status == ItemStatus.OVERDUE) {
             return ItemStatus.CHECKED_OUT;
+        }
+        if (status == ItemStatus.ON_HOLD) {
+            if (mediaType != MediaType.BOOK) {
+                return ItemStatus.UNAVAILABLE;
+            }
+            return onHoldForCurrentUser ? ItemStatus.ON_HOLD_FOR_YOU : ItemStatus.UNAVAILABLE;
         }
         return status;
     }

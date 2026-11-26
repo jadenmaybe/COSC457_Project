@@ -1,3 +1,4 @@
+com\example\AdminCheckoutsPanel$IdRenderer.class
 com\example\Main.class
 com\example\CatalogQuery.class
 com\example\CatalogTableModel.class
@@ -12,6 +13,7 @@ com\example\MySqlCatalogRepository.class
 com\example\CatalogPanel$StatusRenderer.class
 com\example\CatalogPanel$1.class
 com\example\ItemDetailsDialog$1.class
+com\example\MyCheckoutsPanel$Row.class
 com\example\AddItemDialog.class
 com\example\MediaType.class
 com\example\AdminCheckoutsPanel.class
@@ -28,6 +30,7 @@ com\example\CatalogPanel$5.class
 com\example\Role.class
 com\example\ItemDetailsDialog$2.class
 com\example\ItemDetailsDialog$WidthTrackingPanel.class
+com\example\CatalogPanel$6.class
 com\example\MySqlCatalogRepository$1.class
 com\example\AddItemDialog$2.class
 com\example\MyCheckoutsPanel$MyCheckoutsTableModel.class
@@ -37,6 +40,8 @@ com\example\MockAuthService.class
 com\example\LoginPanel.class
 com\example\MyCheckoutsPanel$2.class
 com\example\ItemStatus.class
+com\example\MyCheckoutsPanel$Loaded.class
+com\example\MySqlCatalogRepository$SearchSql.class
 com\example\MyCheckoutsPanel$StatusRenderer.class
 com\example\SampleCatalogRepository.class
 com\example\SampleCheckoutRepository.class
@@ -45,11 +50,13 @@ com\example\Session.class
 com\example\AdminCheckoutsPanel$1.class
 com\example\AdminCheckoutsPanel$DateRenderer.class
 com\example\CatalogRepository.class
+com\example\MySqlCheckoutRepository$Borrower.class
 com\example\CatalogQuery$Field.class
 com\example\MainPanel.class
 com\example\AddItemDialog$1.class
 com\example\CatalogPanel.class
 com\example\AppFrame.class
+com\example\ReservationRecord.class
 com\example\DatabaseConnection.class
 com\example\MediaItem.class
 com\example\PlaceholderPanel.class

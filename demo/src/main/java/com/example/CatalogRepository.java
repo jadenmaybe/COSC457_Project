@@ -12,6 +12,11 @@ public interface CatalogRepository {
     /** Items matching the query, sorted by title. */
     List<MediaItem> search(CatalogQuery query);
 
+    /** Items matching the query, with reservation ownership resolved for one user. */
+    default List<MediaItem> searchForUser(CatalogQuery query, String username) {
+        return search(query);
+    }
+
     /** One item by barcode, or null if there is none. */
     MediaItem findByBarcode(String barcode);
 

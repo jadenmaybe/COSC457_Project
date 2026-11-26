@@ -65,7 +65,7 @@ public class MySqlCatalogRepository implements CatalogRepository {
 
         m.status = ItemStatus.AVAILABLE;
         String dbStatus = rs.getString("Status");
-        for (ItemStatus s : ItemStatus.values()) {
+        for (ItemStatus s : List.of(ItemStatus.AVAILABLE, ItemStatus.CHECKED_OUT, ItemStatus.ON_HOLD)) {
             if (s.toString().equalsIgnoreCase(dbStatus)) {
                 m.status = s;
             }
@@ -79,6 +79,29 @@ public class MySqlCatalogRepository implements CatalogRepository {
 
     @Override
     public List<MediaItem> search(CatalogQuery q) {
+        SearchSql search = buildSearch(q);
+        return query(search.sql(), search.params());
+    }
+
+    @Override
+    public List<MediaItem> searchForUser(CatalogQuery q, String username) {
+        SearchSql search = buildSearch(q);
+        Integer userNum = resolveUserNum(username);
+        if (userNum == null) {
+            return query(search.sql(), search.params());
+        }
+
+        String sql = "SELECT x.*, EXISTS (SELECT 1 FROM `Reserve` r WHERE r.ItemBarcode = x.Barcode "
+                + "AND r.UserNum = ? AND LOWER(TRIM(r.`Status`)) = 'reserved') AS on_hold_for_viewer "
+                + "FROM (" + search.sql() + ") x "
+                + "ORDER BY LOWER(COALESCE(x.Title, x.Equipment_Type, ''))";
+        List<Object> params = new ArrayList<>();
+        params.add(userNum);
+        params.addAll(search.params());
+        return query(sql, params, true);
+    }
+
+    private SearchSql buildSearch(CatalogQuery q) {
         StringBuilder sql = new StringBuilder(BASE + " WHERE 1=1");
         List<Object> params = new ArrayList<>();
 
@@ -92,6 +115,9 @@ public class MySqlCatalogRepository implements CatalogRepository {
         }
         if (q.availableOnly()) {
             sql.append(" AND `Status` = 'Available' AND is_overdue = 0");
+        }
+        if (q.onlineOnly()) {
+            sql.append(" AND Online_Ref IS NOT NULL");
         }
         if (q.text() != null && !q.text().isBlank()) {
             String like = "%" + q.text().trim() + "%";
@@ -111,7 +137,36 @@ public class MySqlCatalogRepository implements CatalogRepository {
             sql.append(")");
         }
         sql.append(" ORDER BY LOWER(COALESCE(Title, Equipment_Type, ''))");
-        return query(sql.toString(), params);
+        return new SearchSql(sql.toString(), params);
+    }
+
+    private Integer resolveUserNum(String username) {
+        String who = username == null ? "" : username.trim();
+        if (who.isEmpty()) {
+            return null;
+        }
+        try (Connection c = DatabaseConnection.getConnection();
+                PreparedStatement ps = c.prepareStatement(
+                        "SELECT ID_Num FROM `User` WHERE CAST(ID_Num AS CHAR) = ? "
+                                + "OR LOWER(First_Name) = LOWER(?) "
+                                + "OR LOWER(CONCAT(First_Name, ' ', Last_Name)) = LOWER(?)")) {
+            ps.setString(1, who);
+            ps.setString(2, who);
+            ps.setString(3, who);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) {
+                    return null;
+                }
+                int userNum = rs.getInt(1);
+                if (rs.next()) {
+                    throw new IllegalStateException(
+                            "More than one account matches \"" + who + "\". Sign in with your ID number instead.");
+                }
+                return userNum;
+            }
+        } catch (SQLException | java.io.IOException e) {
+            throw new IllegalStateException("Could not resolve the signed-in user: " + e.getMessage(), e);
+        }
     }
 
     @Override
@@ -322,6 +377,9 @@ public class MySqlCatalogRepository implements CatalogRepository {
         }
     }
 
+    private record SearchSql(String sql, List<Object> params) {
+    }
+
     /** Runs one statement with the given parameters (null becomes SQL NULL). */
     private static int run(Connection c, String sql, Object... params) throws SQLException {
         try (PreparedStatement ps = c.prepareStatement(sql)) {
@@ -333,6 +391,10 @@ public class MySqlCatalogRepository implements CatalogRepository {
     }
 
     private List<MediaItem> query(String sql, List<Object> params) {
+        return query(sql, params, false);
+    }
+
+    private List<MediaItem> query(String sql, List<Object> params, boolean includesViewerHold) {
         try (Connection c = DatabaseConnection.getConnection();
                 PreparedStatement ps = c.prepareStatement(sql)) {
             for (int i = 0; i < params.size(); i++) {
@@ -341,7 +403,11 @@ public class MySqlCatalogRepository implements CatalogRepository {
             try (ResultSet rs = ps.executeQuery()) {
                 List<MediaItem> out = new ArrayList<>();
                 while (rs.next()) {
-                    out.add(mapItem(rs));
+                    MediaItem item = mapItem(rs);
+                    if (includesViewerHold) {
+                        item.onHoldForCurrentUser = rs.getBoolean("on_hold_for_viewer");
+                    }
+                    out.add(item);
                 }
                 return out;
             }

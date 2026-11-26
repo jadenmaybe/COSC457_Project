@@ -44,7 +44,8 @@ public class MainPanel extends JPanel {
 
     private JTabbedPane buildTabs(Session session, CatalogRepository catalog, CheckoutRepository checkouts) {
         JTabbedPane tabs = new JTabbedPane();
-        CatalogPanel catalogPanel = new CatalogPanel(session.role(), catalog);   // same screen for both roles
+        CatalogPanel catalogPanel = new CatalogPanel(session.role(), catalog,
+                session.role() == Role.ADMIN ? null : session.username());   // same screen for both roles
         if (session.role() != Role.ADMIN) {
             catalogPanel.enableCheckout(checkouts, session.username());
         }

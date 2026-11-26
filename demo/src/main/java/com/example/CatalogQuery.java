@@ -9,8 +9,10 @@ package com.example;
  * @param mediaType     only this type (null = all types)
  * @param genre         only this genre (null = all genres)
  * @param availableOnly only items that can be borrowed right now
+ * @param onlineOnly    only items available online (Item.Online_Ref is not null)
  */
-public record CatalogQuery(String text, Field field, MediaType mediaType, String genre, boolean availableOnly) {
+public record CatalogQuery(String text, Field field, MediaType mediaType, String genre, boolean availableOnly,
+                           boolean onlineOnly) {
 
     /** Which field the search text is compared with. */
     public enum Field {
@@ -32,6 +34,6 @@ public record CatalogQuery(String text, Field field, MediaType mediaType, String
     }
 
     public static CatalogQuery everything() {
-        return new CatalogQuery(null, Field.ANY, null, null, false);
+        return new CatalogQuery(null, Field.ANY, null, null, false, false);
     }
 }

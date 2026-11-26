@@ -8,7 +8,8 @@ import java.time.temporal.ChronoUnit;
  * (UserNum, ItemBarcode, Checkout_Date, Due_Date, Return_Date; the item details come from joining Item/Record_Info).
  */
 public class CheckoutRecord {
-    public final String borrower;        // who has/had it (username for now; Check_Out.UserNum later)
+    public final String borrower;        // who has/had it (the user's full name)
+    public final Integer borrowerId;     // User.ID_Num / Check_Out.UserNum; null when unknown (sample data)
     public final MediaItem item;
     public final LocalDate checkedOutOn;
     public final LocalDate dueOn;
@@ -16,7 +17,13 @@ public class CheckoutRecord {
 
     public CheckoutRecord(String borrower, MediaItem item, LocalDate checkedOutOn, LocalDate dueOn,
                           LocalDate returnedOn) {
+        this(borrower, null, item, checkedOutOn, dueOn, returnedOn);
+    }
+
+    public CheckoutRecord(String borrower, Integer borrowerId, MediaItem item, LocalDate checkedOutOn,
+                          LocalDate dueOn, LocalDate returnedOn) {
         this.borrower = borrower;
+        this.borrowerId = borrowerId;
         this.item = item;
         this.checkedOutOn = checkedOutOn;
         this.dueOn = dueOn;

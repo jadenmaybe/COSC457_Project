@@ -43,6 +43,7 @@ public class CatalogPanel extends JPanel {
     private final JComboBox<Object> typeBox = new JComboBox<>();
     private final JComboBox<String> genreBox = new JComboBox<>();
     private final JCheckBox availableOnly = new JCheckBox("Available now only");
+    private final JCheckBox onlineOnly = new JCheckBox("Available online");
     private final JButton searchButton = new JButton("Search");
     private final JButton clearButton = new JButton("Clear");
 
@@ -53,14 +54,20 @@ public class CatalogPanel extends JPanel {
     private final JButton detailsButton = new JButton("View Details");
     private final JButton editItemButton = new JButton("Edit Selected...");
     private final JButton checkoutButton = new JButton("Check Out Selected");
+    private final JButton reserveButton = new JButton("Reserve Selected");
     private CheckoutRepository checkoutRepo; // null until enableCheckout() is called
     private String checkoutUser;
     private Consumer<MediaItem> onItemOpened = this::showDetails; // what a double-click does
     private boolean loadingFilters; // true while we fill the combo boxes, so they don't trigger searches
 
     public CatalogPanel(Role role, CatalogRepository repo) {
+        this(role, repo, null);
+    }
+
+    public CatalogPanel(Role role, CatalogRepository repo, String username) {
         this.role = role;
         this.repo = repo;
+        this.checkoutUser = username;
         this.model = new CatalogTableModel(role);
         this.table = new JTable(model);
         setLayout(new BorderLayout(0, 8));
@@ -95,6 +102,7 @@ public class CatalogPanel extends JPanel {
         row2.add(new JLabel("Genre:"));
         row2.add(genreBox);
         row2.add(availableOnly);
+        row2.add(onlineOnly);
 
         bar.add(row1);
         bar.add(row2);
@@ -143,6 +151,8 @@ public class CatalogPanel extends JPanel {
         } else {
             checkoutButton.setEnabled(false); // enabled when an available item is selected
             buttons.add(checkoutButton);
+            reserveButton.setEnabled(false); // enabled when a checked-out book is selected
+            buttons.add(reserveButton);
         }
         bar.add(buttons, BorderLayout.EAST);
         return bar;
@@ -170,6 +180,7 @@ public class CatalogPanel extends JPanel {
         genreBox.addActionListener(e -> filterChanged());
         fieldBox.addActionListener(e -> filterChanged());
         availableOnly.addActionListener(e -> filterChanged());
+        onlineOnly.addActionListener(e -> filterChanged());
         clearButton.addActionListener(e -> clearFilters());
 
         detailsButton.addActionListener(e -> {
@@ -187,6 +198,13 @@ public class CatalogPanel extends JPanel {
             MediaItem item = selectedItem();
             if (item != null) {
                 checkOutItem(item);
+            }
+        });
+
+        reserveButton.addActionListener(e -> {
+            MediaItem item = selectedItem();
+            if (item != null) {
+                reserveItem(item);
             }
         });
 
@@ -217,6 +235,7 @@ public class CatalogPanel extends JPanel {
         typeBox.setSelectedIndex(0);
         genreBox.setSelectedIndex(0);
         availableOnly.setSelected(false);
+        onlineOnly.setSelected(false);
         loadingFilters = false;
         runSearch();
     }
@@ -225,7 +244,7 @@ public class CatalogPanel extends JPanel {
         MediaType type = typeBox.getSelectedItem() instanceof MediaType t ? t : null;
         String genre = ALL_GENRES.equals(genreBox.getSelectedItem()) ? null : (String) genreBox.getSelectedItem();
         return new CatalogQuery(searchField.getText(), (CatalogQuery.Field) fieldBox.getSelectedItem(),
-                type, genre, availableOnly.isSelected());
+                type, genre, availableOnly.isSelected(), onlineOnly.isSelected());
     }
 
     private void runSearch() {
@@ -234,7 +253,9 @@ public class CatalogPanel extends JPanel {
         new SwingWorker<List<MediaItem>, Void>() {
             @Override
             protected List<MediaItem> doInBackground() {
-                return repo.search(query); // runs off the UI thread
+                return role == Role.ADMIN || checkoutUser == null
+                        ? repo.search(query)
+                        : repo.searchForUser(query, checkoutUser); // runs off the UI thread
             }
 
             @Override
@@ -259,7 +280,8 @@ public class CatalogPanel extends JPanel {
 
     private void showDetails(MediaItem item) {
         new ItemDetailsDialog(SwingUtilities.getWindowAncestor(this), item, role,
-                checkoutRepo == null ? null : this::checkOutItem).setVisible(true);
+                checkoutRepo == null ? null : this::checkOutItem,
+                checkoutRepo == null ? null : this::reserveItem).setVisible(true);
     }
 
     /** After an admin saves an item, refresh the genre filter and catalog. */
@@ -310,6 +332,46 @@ public class CatalogPanel extends JPanel {
         checkoutButton.setEnabled(canCheckOut);
         checkoutButton.setToolTipText(item != null && !item.isAvailable()
                 ? "Only available items can be checked out" : null);
+
+        boolean canReserve = checkoutRepo != null && item != null && item.canBeReserved();
+        reserveButton.setEnabled(canReserve);
+        reserveButton.setToolTipText(item != null && !item.canBeReserved()
+                ? "Only books that are checked out can be reserved" : null);
+    }
+
+    /** Asks for confirmation, then reserves the book in the background and reloads the list. */
+    private void reserveItem(MediaItem item) {
+        if (checkoutRepo == null) {
+            return;
+        }
+        int answer = JOptionPane.showConfirmDialog(this,
+                "Reserve \"" + item.displayTitle() + "\"?\nYou will be next in line when it is returned.",
+                "Confirm Reservation", JOptionPane.YES_NO_OPTION);
+        if (answer != JOptionPane.YES_OPTION) {
+            return;
+        }
+        reserveButton.setEnabled(false);
+        new SwingWorker<LocalDate, Void>() {
+            @Override
+            protected LocalDate doInBackground() {
+                return checkoutRepo.reserve(checkoutUser, item); // runs off the UI thread
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    LocalDate dueBack = get();
+                    JOptionPane.showMessageDialog(CatalogPanel.this,
+                            "\"" + item.displayTitle() + "\" is reserved for you.\nThe current borrower is due to "
+                                    + "return it on " + dueBack + ".",
+                            "Reserved", JOptionPane.INFORMATION_MESSAGE);
+                } catch (Exception e) {
+                    JOptionPane.showMessageDialog(CatalogPanel.this, rootMessage(e), "Could not reserve",
+                            JOptionPane.ERROR_MESSAGE);
+                }
+                runSearch(); // always reload, so the list shows what the database really says
+            }
+        }.execute();
     }
 
     /** Asks for confirmation, then checks the item out in the background and reloads the list. */
@@ -385,6 +447,8 @@ public class CatalogPanel extends JPanel {
                     case CHECKED_OUT -> new Color(0x9A6700);
                     case ON_HOLD -> new Color(0x6639BA);
                     case OVERDUE -> new Color(0xB00020);
+                    case ON_HOLD_FOR_YOU -> new Color(0x6639BA);
+                    case UNAVAILABLE -> Color.GRAY;
                 });
             }
             return this;

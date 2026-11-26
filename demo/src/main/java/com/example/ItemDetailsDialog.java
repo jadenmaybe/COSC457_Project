@@ -42,6 +42,15 @@ public class ItemDetailsDialog extends JDialog {
 
     /** @param onCheckout what the Check Out button does (null = the button stays disabled) */
     public ItemDetailsDialog(Window owner, MediaItem item, Role viewer, Consumer<MediaItem> onCheckout) {
+        this(owner, item, viewer, onCheckout, null);
+    }
+
+    /**
+     * @param onCheckout what the Check Out button does (null = the button stays disabled)
+     * @param onReserve  what the Reserve button does (null = the button stays disabled)
+     */
+    public ItemDetailsDialog(Window owner, MediaItem item, Role viewer, Consumer<MediaItem> onCheckout,
+                             Consumer<MediaItem> onReserve) {
         super(owner, item.displayTitle(), ModalityType.APPLICATION_MODAL);
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
 
@@ -52,7 +61,7 @@ public class ItemDetailsDialog extends JDialog {
         scroll.setBorder(BorderFactory.createEmptyBorder());
         scroll.getVerticalScrollBar().setUnitIncrement(16);
         content.add(scroll, BorderLayout.CENTER);
-        content.add(buildButtons(item, viewer, onCheckout), BorderLayout.SOUTH);
+        content.add(buildButtons(item, viewer, onCheckout, onReserve), BorderLayout.SOUTH);
         setContentPane(content);
 
         setSize(540, 620);
@@ -107,9 +116,19 @@ public class ItemDetailsDialog extends JDialog {
                 fg = new Color(0x9A6700);
             }
             case ON_HOLD -> {
-                text = "On hold for another user";
+                text = "On hold";
                 bg = new Color(0xEFE7FB);
                 fg = new Color(0x6639BA);
+            }
+            case ON_HOLD_FOR_YOU -> {
+                text = "On hold for you";
+                bg = new Color(0xEFE7FB);
+                fg = new Color(0x6639BA);
+            }
+            case UNAVAILABLE -> {
+                text = "Currently unavailable";
+                bg = new Color(0xF0F0F0);
+                fg = Color.GRAY;
             }
             default -> {   // OVERDUE: only reachable for admins, see MediaItem.statusFor
                 text = "Overdue — checked out and past its due date";
@@ -178,7 +197,8 @@ public class ItemDetailsDialog extends JDialog {
 
     // ------------------------------------------------------------------ buttons
 
-    private JPanel buildButtons(MediaItem item, Role viewer, Consumer<MediaItem> onCheckout) {
+    private JPanel buildButtons(MediaItem item, Role viewer, Consumer<MediaItem> onCheckout,
+                                Consumer<MediaItem> onReserve) {
         JPanel bar = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 8));
         bar.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(0xC8C8C8)));
 
@@ -195,6 +215,19 @@ public class ItemDetailsDialog extends JDialog {
                         : "Only available items can be checked out");
             }
             bar.add(checkout);
+
+            JButton reserve = new JButton("Reserve");
+            if (onReserve != null && item.canBeReserved()) {
+                reserve.addActionListener(e -> {
+                    dispose();
+                    onReserve.accept(item);
+                });
+            } else {
+                reserve.setEnabled(false);
+                reserve.setToolTipText(onReserve == null ? "Open this item from the Catalog tab to reserve it"
+                        : "Only books that are checked out can be reserved");
+            }
+            bar.add(reserve);
         }
         JButton close = new JButton(new AbstractAction("Close") {
             @Override
